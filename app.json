@@ -1,25 +1,41 @@
 {
   "expo": {
-    "name": "bhs-mobil",
+    "name": "BHS MOBİL",
     "slug": "bhs-mobil",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bhsmobil.app"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#111113",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.bhsmobil.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bildirilere fotoğraf eklemek için galerinize erişim gerekir.",
+          "cameraPermission": "Bildirilere fotoğraf çekmek için kameranıza erişim gerekir."
+        }
+      ]
+    ],
+    "scheme": "bhsmobil",
+    "backgroundColor": "#111113"
   }
 }
