@@ -31,7 +31,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Bildirilere fotoğraf eklemek için galerinize erişim gerekir.",
-          "cameraPermission": "Bildirilere fotoğraf çekmek için kameranıza erişim gerekir."
+          "cameraPermission": "Bildirilere fotoğraf çekmek için kameranıza erişim gerekir.",
+          "microphonePermission": false
         }
       ],
       "expo-sharing"
