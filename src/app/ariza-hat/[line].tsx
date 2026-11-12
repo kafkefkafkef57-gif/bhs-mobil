@@ -1,10 +1,11 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { ImageIcon, Plus, Trash2 } from 'lucide-react-native';
+import { Plus, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { zoneTone } from '../../lib/faults';
+import { LineSchema } from '../../lib/LineSchema';
 import { formatDate, weekStart } from '../../lib/format';
 import { C } from '../../lib/theme';
 import { Fault, FaultZone, Line, LINE_NAME } from '../../lib/types';
@@ -45,10 +46,7 @@ export default function ArizaHat() {
       <Text style={s.h1}>{LINE_NAME[line]} Arıza Bildirimi</Text>
 
       <Text style={s.h2}>Hat şeması</Text>
-      <Card style={{ alignItems: 'center', gap: 8, paddingVertical: 36 }}>
-        <ImageIcon color={C.muted} size={32} />
-        <Text style={[s.muted, { textAlign: 'center' }]}>{LINE_NAME[line]} şema görseli buraya eklenecek.</Text>
-      </Card>
+      <LineSchema line={line} />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={s.h2}>Bölge seçin</Text>
