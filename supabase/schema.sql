@@ -102,11 +102,62 @@ create policy fault_zones_insert on public.fault_zones for insert to authenticat
 drop policy if exists fault_zones_delete on public.fault_zones;
 create policy fault_zones_delete on public.fault_zones for delete to authenticated using (public.is_admin());
 
--- Başlangıç bölgeleri (diğerleri uygulamadaki "Bölge ekle" ile eklenir).
+-- Başlangıç bölgeleri: Batı 29, Doğu 24 (yenileri uygulamadaki "Bölge ekle" ile eklenir).
 insert into public.fault_zones (line, name, sort_no) values
-  ('dogu', 'Doğu 3 Vertisorter', 1), ('dogu', 'Doğu 2 Vertisorter', 2), ('dogu', 'Doğu 1 Vertisorter', 3),
-  ('bati', 'Batı 3 Vertisorter', 1), ('bati', 'Batı 2 Vertisorter', 2), ('bati', 'Batı 1 Vertisorter', 3)
-on conflict (line, name) do nothing;
+  ('bati', 'Batı 3 Vertisorter', 1),
+  ('bati', 'Batı 2 Vertisorter', 2),
+  ('bati', 'Batı 1 Vertisorter', 3),
+  ('bati', 'Batı 3 Uzunbant', 4),
+  ('bati', 'Batı 2 Uzunbant', 5),
+  ('bati', 'Batı 1 Uzunbant', 6),
+  ('bati', 'Batı 3 MVT Çıkış', 7),
+  ('bati', 'Batı 2 MVT Çıkış', 8),
+  ('bati', 'Batı 1 MVT Çıkış', 9),
+  ('bati', 'Batı 1 MVT Giriş', 10),
+  ('bati', 'Batı 2 MVT Giriş', 11),
+  ('bati', 'Batı 3 MVT Giriş', 12),
+  ('bati', 'Batı 1 Scanner', 13),
+  ('bati', 'Batı 2 Scanner', 14),
+  ('bati', 'Batı 3 Scanner', 15),
+  ('bati', 'Batı 1 Gerisi Köşe', 16),
+  ('bati', 'Batı 2 Gerisi Köşe', 17),
+  ('bati', 'Batı 3 Gerisi Köşe', 18),
+  ('bati', 'Eco Vertibelt', 19),
+  ('bati', 'Fox Vertibelt', 20),
+  ('bati', 'Eco Vertibelt Gerisi Köşe', 21),
+  ('bati', 'Fox Vertibelt Gerisi Köşe', 22),
+  ('bati', 'Charlie Vertibelt', 23),
+  ('bati', 'Delta Vertibelt', 24),
+  ('bati', 'Rapiscan Vertibelt', 25),
+  ('bati', 'Batı Transfer Scanner', 26),
+  ('bati', 'Batı Transfer Kepenk', 27),
+  ('bati', 'A-B Scanner', 28),
+  ('bati', 'Rapiscan Vertibelt Gerisi Köşe', 29),
+  ('dogu', 'Doğu 3 Vertisorter', 1),
+  ('dogu', 'Doğu 2 Vertisorter', 2),
+  ('dogu', 'Doğu 1 Vertisorter', 3),
+  ('dogu', 'Doğu 3 Uzunbant', 4),
+  ('dogu', 'Doğu 2 Uzunbant', 5),
+  ('dogu', 'Doğu 1 Uzunbant', 6),
+  ('dogu', 'Doğu 3 MVT Çıkış', 7),
+  ('dogu', 'Doğu 2 MVT Çıkış', 8),
+  ('dogu', 'Doğu 1 MVT Çıkış', 9),
+  ('dogu', 'Doğu 3 MVT Giriş', 10),
+  ('dogu', 'Doğu 2 MVT Giriş', 11),
+  ('dogu', 'Doğu 1 MVT Giriş', 12),
+  ('dogu', 'Doğu 3 Scanner', 13),
+  ('dogu', 'Doğu 2 Scanner', 14),
+  ('dogu', 'Doğu 1 Scanner', 15),
+  ('dogu', 'Golf Vertibelt Gerisi Köşe', 16),
+  ('dogu', 'Hotel Vertibelt Gerisi Köşe', 17),
+  ('dogu', 'Doğu 3 Gerisi Köşe', 18),
+  ('dogu', 'Doğu 2 Gerisi Köşe', 19),
+  ('dogu', 'Doğu 1 Gerisi Köşe', 20),
+  ('dogu', 'Doğu Transfer Kepenk', 21),
+  ('dogu', 'Doğu Transfer 2. Köşe', 22),
+  ('dogu', 'Doğu Transfer Kilo Birleşim', 23),
+  ('dogu', 'Juliet Vertibelt', 24)
+on conflict (line, name) do update set sort_no = excluded.sort_no;
 
 alter table public.faults add column if not exists line text check (line in ('dogu', 'bati'));
 alter table public.faults add column if not exists zone_id uuid references public.fault_zones (id) on delete set null;
