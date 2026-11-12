@@ -16,13 +16,14 @@ const TEAMS: { value: Department; label: string }[] = [
   { value: 'Operasyon', label: 'Operasyon' },
   { value: 'Teknik', label: 'Teknik' },
 ];
-const KIND_OPTIONS = KIND_ORDER.map((k) => ({ value: k, label: KINDS[k].label }));
+type NewKind = Exclude<EntryKind, 'ariza'>;
+const KIND_OPTIONS = KIND_ORDER.filter((k): k is NewKind => k !== 'ariza').map((k) => ({ value: k, label: KINDS[k].label }));
 
 /** Vardiyaya bildirim, not, rutin ya da devir notu ekleme. */
 export default function VardiyaPaylasim() {
   const p = useLocalSearchParams<{ day?: string; shift?: Shift; team?: Department }>();
   const { profile } = useAuth();
-  const [kind, setKind] = useState<EntryKind>('bildirim');
+  const [kind, setKind] = useState<NewKind>('bildirim');
   const [date, setDate] = useState(() => (p.day ? fromDay(p.day) : new Date()));
   const [shift, setShift] = useState<Shift>(p.shift ?? 'A');
   const [team, setTeam] = useState<Department>(p.team ?? 'Operasyon');

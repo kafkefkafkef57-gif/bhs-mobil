@@ -7,10 +7,9 @@ import { useAuth } from '../../lib/auth';
 import { DateField } from '../../lib/DateField';
 import { PhotoField, PhotoItem, uploadAll } from '../../lib/PhotoField';
 import { C } from '../../lib/theme';
+import { COMPANIES } from '../../lib/types';
 import { Btn, ErrorText, Field, s } from '../../lib/ui';
 
-/** Sık kullanılan firmalar; listede olmayan firma elle yazılabilir. */
-const COMPANIES = ['ÇELEBİ', 'PCYH', 'TGS'];
 
 /** Yeni olay tutanağı oluşturma ve (id verilirse) düzenleme ekranı. */
 export default function TutanakDuzenle() {

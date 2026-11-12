@@ -27,9 +27,32 @@ export type Notice = {
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
 export type SignUpInput = { full_name: string; phone: string; email: string; password: string };
-export type Table = 'profiles' | 'notices' | 'faults' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
+export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
 
-export type EntryKind = 'bildirim' | 'not' | 'rutin' | 'devir';
+export type Line = 'dogu' | 'bati';
+export const LINE_NAME: Record<Line, string> = { dogu: 'Doğu Hattı', bati: 'Batı Hattı' };
+export const COMPANIES = ['PCYH', 'TGS', 'ÇELEBİ'] as const;
+/** Hat üzerindeki arıza bölgesi (ör. "Doğu 2 Vertisorter"). */
+export type FaultZone = { id: string; line: Line; name: string; sort_no: number };
+export type Fault = {
+  id: string;
+  line: Line;
+  zone_id: string | null;
+  zone_name: string;
+  /** Arızaya sebep olan bagajın firması. */
+  company: string;
+  description: string;
+  photo_url: string | null;
+  shift: Shift;
+  team: Department;
+  created_by: string;
+  author_name?: string;
+  created_at: string;
+};
+export type FaultInput = Pick<Fault, 'line' | 'zone_id' | 'zone_name' | 'company' | 'description' | 'photo_url' | 'shift' | 'team'>;
+
+/** 'ariza' elle eklenmez; Arıza Bildirimi'nden girilen arızalar akışa bu türle düşer. */
+export type EntryKind = 'ariza' | 'bildirim' | 'not' | 'rutin' | 'devir';
 /** Bir vardiyanın gün içindeki paylaşımı (bildirim, not, rutin, devir notu). */
 export type ShiftEntry = {
   id: string;
@@ -44,7 +67,7 @@ export type ShiftEntry = {
   author_name?: string;
   created_at: string;
 };
-export type ShiftEntryInput = Pick<ShiftEntry, 'day' | 'shift' | 'team' | 'kind' | 'title' | 'body' | 'photo_url'>;
+export type ShiftEntryInput = Pick<ShiftEntry, 'day' | 'shift' | 'team' | 'title' | 'body' | 'photo_url'> & { kind: Exclude<EntryKind, 'ariza'> };
 export type ReportTeam = Department | 'Tümü';
 /** Oluşturulmuş vardiya raporu; içerik o andaki kayıtların kopyasıdır. */
 export type ShiftReport = {

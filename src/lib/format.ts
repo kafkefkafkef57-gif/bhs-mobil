@@ -28,5 +28,13 @@ export const addDays = (day: string, n: number) => {
   d.setDate(d.getDate() + n);
   return toDay(d);
 };
+/** Verilen anın haftasının başlangıcı (Pazartesi 00:00). */
+export const weekStart = (d: Date) => {
+  const s = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  s.setDate(s.getDate() - ((s.getDay() + 6) % 7));
+  return s;
+};
+/** Örn. "02 Kas 2026" */
+export const formatDayShort = (d: Date) => `${pad(d.getDate())} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 /** "YYYY-MM-DD" -> "GG.AA.YYYY" */
 export const formatDay = (day: string) => day.split('-').reverse().join('.');

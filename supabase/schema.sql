@@ -84,6 +84,39 @@ drop policy if exists faults_all on public.faults;
 create policy faults_all on public.faults for all to authenticated
   using (public.is_approved()) with check (public.is_approved());
 
+-- ---------- Arıza bölgeleri ve arıza kayıtları ----------
+create table if not exists public.fault_zones (
+  id uuid primary key default gen_random_uuid(),
+  line text not null check (line in ('dogu', 'bati')),
+  name text not null,
+  sort_no bigint not null default 0,
+  created_at timestamptz not null default now(),
+  unique (line, name)
+);
+alter table public.fault_zones enable row level security;
+-- Bölgeleri herkes (onaylı) görür ve ekleyebilir; silmeyi yalnızca yönetici yapar.
+drop policy if exists fault_zones_select on public.fault_zones;
+create policy fault_zones_select on public.fault_zones for select to authenticated using (public.is_approved());
+drop policy if exists fault_zones_insert on public.fault_zones;
+create policy fault_zones_insert on public.fault_zones for insert to authenticated with check (public.is_approved());
+drop policy if exists fault_zones_delete on public.fault_zones;
+create policy fault_zones_delete on public.fault_zones for delete to authenticated using (public.is_admin());
+
+-- Başlangıç bölgeleri (diğerleri uygulamadaki "Bölge ekle" ile eklenir).
+insert into public.fault_zones (line, name, sort_no) values
+  ('dogu', 'Doğu 3 Vertisorter', 1), ('dogu', 'Doğu 2 Vertisorter', 2), ('dogu', 'Doğu 1 Vertisorter', 3),
+  ('bati', 'Batı 3 Vertisorter', 1), ('bati', 'Batı 2 Vertisorter', 2), ('bati', 'Batı 1 Vertisorter', 3)
+on conflict (line, name) do nothing;
+
+alter table public.faults add column if not exists line text check (line in ('dogu', 'bati'));
+alter table public.faults add column if not exists zone_id uuid references public.fault_zones (id) on delete set null;
+alter table public.faults add column if not exists zone_name text not null default ''; -- bölge silinse de kayıtta kalır
+alter table public.faults add column if not exists company text not null default '';
+alter table public.faults add column if not exists photo_url text;
+alter table public.faults add column if not exists shift text check (shift in ('A', 'B', 'C', 'D'));
+alter table public.faults add column if not exists team text check (team in ('Operasyon', 'Teknik'));
+create index if not exists faults_created_at_idx on public.faults (created_at);
+
 -- ---------- Olay tutanakları ----------
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
@@ -207,7 +240,7 @@ create policy photos_insert on storage.objects for insert to authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles', 'notices', 'faults', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
+  foreach t in array array['profiles', 'notices', 'faults', 'fault_zones', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;

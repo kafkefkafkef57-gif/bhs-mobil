@@ -2,18 +2,34 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
-import { formatDateLong, formatDay } from './format';
+import { formatDateLong, formatDay, toDay } from './format';
 import { C } from './theme';
-import { Department, EntryKind, Shift, ShiftEntry, ShiftReport } from './types';
+import { Department, EntryKind, Fault, LINE_NAME, Shift, ShiftEntry, ShiftReport } from './types';
 
 export const SHIFTS: Shift[] = ['A', 'B', 'C', 'D'];
 export const KINDS: Record<EntryKind, { label: string; plural: string; fg: string; bg: string }> = {
+  ariza: { label: 'Arıza', plural: 'Arızalar', fg: C.red, bg: C.redBg },
   bildirim: { label: 'Bildirim', plural: 'Bildirimler', fg: '#7fb0ff', bg: '#22335a' },
   not: { label: 'Not', plural: 'Notlar', fg: C.amber, bg: C.amberBg },
   rutin: { label: 'Vardiya rutini', plural: 'Vardiya Rutinleri', fg: '#34d399', bg: '#1d4238' },
   devir: { label: 'Devir notu', plural: 'Devir Notları', fg: C.violet, bg: C.violetBg },
 };
-export const KIND_ORDER: EntryKind[] = ['bildirim', 'not', 'rutin', 'devir'];
+export const KIND_ORDER: EntryKind[] = ['ariza', 'bildirim', 'not', 'rutin', 'devir'];
+
+/** Arıza kaydını vardiya akışında ve raporda gösterilecek kayda çevirir. */
+export const faultToEntry = (f: Fault): ShiftEntry => ({
+  id: f.id,
+  day: toDay(new Date(f.created_at)),
+  shift: f.shift,
+  team: f.team,
+  kind: 'ariza',
+  title: `${f.zone_name} arızası`,
+  body: [`${LINE_NAME[f.line]} · Bagaj firması: ${f.company}`, f.description].filter(Boolean).join('\n'),
+  photo_url: f.photo_url,
+  created_by: f.created_by,
+  author_name: f.author_name,
+  created_at: f.created_at,
+});
 export const time = (iso: string) => formatDateLong(iso).slice(-5);
 export const reportTitle = (r: Pick<ShiftReport, 'day' | 'shift' | 'team'>) => `${formatDay(r.day)} · ${r.shift} Vardiyası · ${r.team === 'Tümü' ? 'Tüm ekipler' : r.team}`;
 

@@ -1,5 +1,5 @@
 import { isDemo, supabase } from './supabase';
-import { Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { Fault, FaultInput, FaultZone, Line, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
 import { addDays, toDay } from './format';
 import { PlanRow } from './planImport';
 
@@ -23,6 +23,13 @@ export interface Api {
   saveTask(input: TaskInput): Promise<void>;
   setTaskStatus(id: string, status: TaskStatus | null): Promise<void>;
   todayFaultCount(): Promise<number>;
+  listZones(line: Line): Promise<FaultZone[]>;
+  addZone(line: Line, name: string): Promise<void>;
+  deleteZone(id: string): Promise<void>;
+  /** from (dahil) – to (hariç) aralığında kaydedilen arızalar, yeniden eskiye. */
+  listFaults(from: Date, to?: Date): Promise<Fault[]>;
+  getFault(id: string): Promise<Fault | null>;
+  saveFault(input: FaultInput): Promise<void>;
   listStaff(): Promise<Staff[]>;
   /** from–to (dahil) aralığındaki plan; staffId verilirse yalnızca o kişi. */
   listShifts(from: string, to: string, staffId?: string): Promise<StaffShift[]>;
@@ -70,6 +77,7 @@ function decodeBase64(b64: string): Uint8Array {
 }
 
 const NOTICE_COLS = '*, author:profiles!notices_created_by_fkey(full_name)';
+const FAULT_COLS = '*, author:profiles!faults_created_by_fkey(full_name)';
 const withAuthorName = (r: any) => ({ ...r, author_name: r.author?.full_name, author: undefined });
 const toNotice = (r: any): Notice => withAuthorName(r);
 
@@ -142,6 +150,36 @@ const supaApi: Api = {
     const { error } = await supabase.storage.from('photos').upload(path, body, { contentType: type });
     fail(error);
     return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl;
+  },
+  async listZones(line) {
+    const { data, error } = await supabase.from('fault_zones').select('*').eq('line', line).order('sort_no').order('name');
+    fail(error);
+    return (data ?? []) as FaultZone[];
+  },
+  async addZone(line, name) {
+    const { error } = await supabase.from('fault_zones').insert({ line, name, sort_no: Math.floor(Date.now() / 1000) });
+    if (error?.code === '23505') throw new Error('Bu hatta aynı adda bir bölge zaten var.');
+    fail(error);
+  },
+  async deleteZone(id) {
+    const { error } = await supabase.from('fault_zones').delete().eq('id', id);
+    fail(error);
+  },
+  async listFaults(from, to) {
+    let q = supabase.from('faults').select(FAULT_COLS).gte('created_at', from.toISOString());
+    if (to) q = q.lt('created_at', to.toISOString());
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(2000);
+    fail(error);
+    return (data ?? []).map(withAuthorName) as Fault[];
+  },
+  async getFault(id) {
+    const { data, error } = await supabase.from('faults').select(FAULT_COLS).eq('id', id).maybeSingle();
+    fail(error);
+    return data ? (withAuthorName(data) as Fault) : null;
+  },
+  async saveFault(input) {
+    const { error } = await supabase.from('faults').insert(input);
+    fail(error);
   },
   async todayFaultCount() {
     const { count, error } = await supabase
@@ -263,7 +301,20 @@ const demo = {
   notices: [
     { id: 'n1', title: 'Test Bildirisi', body: 'Sistem planlı bakımda', importance: 'normal', photo_url: null, created_by: 'admin', created_at: now(), completed_at: null },
   ] as Notice[],
-  faults: [now(), now(), now()],
+  zones: [
+    ...['Doğu 1 Vertisorter', 'Doğu 2 Vertisorter', 'Doğu 3 Vertisorter', 'Doğu Check-in 1-3'].map((name, i) => ({ id: `zd${i}`, line: 'dogu', name, sort_no: i })),
+    ...['Batı 1 Vertisorter', 'Batı 2 Vertisorter', 'Batı 3 Vertisorter'].map((name, i) => ({ id: `zb${i}`, line: 'bati', name, sort_no: i })),
+  ] as FaultZone[],
+  // Bugün 3, geçen hafta 13 örnek arıza (renk eşiklerini ve arşivi göstermek için).
+  faults: Array.from({ length: 16 }, (_, i): Fault => {
+    const old = i >= 3;
+    const zone = old ? (i < 15 ? 1 : 0) : i;
+    return {
+      id: `f${i}`, line: 'dogu', zone_id: `zd${zone}`, zone_name: ['Doğu 1 Vertisorter', 'Doğu 2 Vertisorter', 'Doğu 3 Vertisorter'][zone], company: ['PCYH', 'TGS', 'ÇELEBİ'][i % 3],
+      description: i === 0 ? 'Bagaj sıkışması, bant 2 dakika durdu.' : '', photo_url: null, shift: 'A', team: 'Operasyon', created_by: 'admin',
+      created_at: new Date(Date.now() - (old ? 7 * 86400000 : i * 60000)).toISOString(),
+    };
+  }),
   reports: [
     { id: 'r1', no: 1, incident_at: now(), officer: 'Demo Yönetici', staff_name: 'Ali Kaya', company: 'PCYH', summary: 'Konveyör bandında ufak sıkışma meydana geldi', photo_urls: [], created_by: 'admin', created_at: now() },
   ] as Report[],
@@ -383,9 +434,35 @@ const demoApi: Api = {
     if (t) t.status = status;
     emit();
   },
+  async listZones(line) {
+    return demo.zones.filter((z) => z.line === line);
+  },
+  async addZone(line, name) {
+    if (demo.zones.some((z) => z.line === line && z.name === name)) throw new Error('Bu hatta aynı adda bir bölge zaten var.');
+    demo.zones.push({ id: uid(), line, name, sort_no: demo.zones.length });
+    emit();
+  },
+  async deleteZone(id) {
+    demo.zones = demo.zones.filter((z) => z.id !== id);
+    emit();
+  },
+  async listFaults(from, to) {
+    return demo.faults
+      .filter((f) => new Date(f.created_at) >= from && (!to || new Date(f.created_at) < to))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((f) => ({ ...f, author_name: demo.users.find((u) => u.id === f.created_by)?.full_name }));
+  },
+  async getFault(id) {
+    const f = demo.faults.find((x) => x.id === id);
+    return f ? { ...f, author_name: demo.users.find((u) => u.id === f.created_by)?.full_name } : null;
+  },
+  async saveFault(input) {
+    demo.faults.push({ ...input, id: uid(), created_by: demo.me!, created_at: now() });
+    emit();
+  },
   async todayFaultCount() {
     const t = startOfToday().getTime();
-    return demo.faults.filter((f) => new Date(f).getTime() >= t).length;
+    return demo.faults.filter((f) => new Date(f.created_at).getTime() >= t).length;
   },
   async listStaff() {
     return demoStaff;

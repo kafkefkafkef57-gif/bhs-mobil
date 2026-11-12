@@ -6,9 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
 import { DateField } from '../../lib/DateField';
 import { EntryCard } from '../../lib/EntryCard';
-import { formatDateLong, toDay } from '../../lib/format';
+import { addDays, formatDateLong, fromDay, toDay } from '../../lib/format';
 import { PageHeader } from '../../lib/MenuButton';
-import { KIND_ORDER, KINDS, loadShiftPrefs, reportTitle, saveShiftPrefs, shareReportPdf } from '../../lib/shiftReport';
+import { faultToEntry, KIND_ORDER, KINDS, loadShiftPrefs, reportTitle, saveShiftPrefs, shareReportPdf } from '../../lib/shiftReport';
 import { ShiftPicker } from '../../lib/ShiftPicker';
 import { C } from '../../lib/theme';
 import { Department, EntryKind, ReportTeam, Shift, ShiftEntry, ShiftReport } from '../../lib/types';
@@ -58,7 +58,16 @@ function Akis({ onReport }: { onReport: () => void }) {
     if (team !== 'Tümü') saveShiftPrefs({ shift, team });
   }, [shift, team]);
 
-  const entries = useLive(() => api.listShiftEntries(day, shift, team === 'Tümü' ? undefined : team), ['shift_entries'], [] as ShiftEntry[]);
+  // Paylaşımlar + o gün bu vardiya ve ekibin girdiği arızalar, saat sırasıyla.
+  const entries = useLive(
+    async () => {
+      const [list, faults] = await Promise.all([api.listShiftEntries(day, shift, team === 'Tümü' ? undefined : team), api.listFaults(fromDay(day), fromDay(addDays(day, 1)))]);
+      const mine = faults.filter((f) => f.shift === shift && (team === 'Tümü' || f.team === team)).map(faultToEntry);
+      return [...list, ...mine].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    },
+    ['shift_entries', 'faults'],
+    [] as ShiftEntry[],
+  );
   useEffect(() => {
     entries.reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
