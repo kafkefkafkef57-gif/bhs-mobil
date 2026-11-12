@@ -25,7 +25,7 @@ export function useLive<T>(load: () => Promise<T>, tables: Table[], initial: T) 
     }, [reload]),
   );
   const key = tables.join(',');
-  useEffect(() => api.subscribe(key.split(',') as Table[], reload), [key, reload]);
+  useEffect(() => (key ? api.subscribe(key.split(',') as Table[], reload) : undefined), [key, reload]);
 
   return { data, error, reload };
 }

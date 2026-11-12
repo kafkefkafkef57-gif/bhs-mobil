@@ -5,6 +5,7 @@ import {
   Alert,
   Platform,
   Pressable,
+  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
@@ -73,6 +74,22 @@ export function Badge({ label, fg, bg }: { label: string; fg: string; bg: string
   );
 }
 
+/** Yan yana seçenekler (filtreler için); sığmazsa yana kayar. */
+export function Segmented<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={s.segWrap}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={o.label} style={[s.segItem, on && { backgroundColor: C.bg, borderColor: C.border }]}>
+            <Text style={{ color: on ? C.text : C.muted, fontSize: 15, fontWeight: '700' }}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export function ErrorText({ children }: { children: string | null }) {
   return children ? <Text style={{ color: C.red, fontSize: 14 }}>{children}</Text> : null;
 }
@@ -113,6 +130,8 @@ export const s = StyleSheet.create({
     fontSize: 16,
   },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start' },
+  segWrap: { backgroundColor: C.cardHi, borderRadius: 14, padding: 4, gap: 2 },
+  segItem: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: 'transparent' },
   h1: { color: C.text, fontSize: 26, fontWeight: '800' },
   h2: { color: C.text, fontSize: 21, fontWeight: '800' },
   muted: { color: C.muted, fontSize: 15, lineHeight: 21 },

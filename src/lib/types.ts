@@ -27,7 +27,23 @@ export type Notice = {
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
 export type SignUpInput = { full_name: string; phone: string; email: string; password: string };
-export type Table = 'profiles' | 'notices' | 'faults' | 'reports' | 'tasks';
+export type Table = 'profiles' | 'notices' | 'faults' | 'reports' | 'tasks' | 'staff_assignments';
+
+export type Department = 'Operasyon' | 'Teknik';
+/** Çalışma planındaki personel (uygulama kullanıcısından bağımsız). */
+export type Staff = {
+  id: string;
+  sicil: string;
+  full_name: string;
+  title: string;
+  department: Department;
+  sort_no: number;
+};
+/** Bir personelin bir gündeki plan değeri: "08:30-20:30", "T", "Yİ" ... */
+export type StaffShift = { staff_id: string; day: string; value: string };
+export const LOCATIONS = ['T1', 'T2', 'Yeni Şut Altı'] as const;
+export type Location = (typeof LOCATIONS)[number];
+export type StaffAssignment = { staff_id: string; day: string; location: Location };
 
 /** Olay tutanağı (yer hizmetleri kazaları). */
 export type Report = {

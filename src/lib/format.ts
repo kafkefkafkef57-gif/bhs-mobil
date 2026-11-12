@@ -18,5 +18,15 @@ export function formatDateLong(iso: string) {
 
 /** Date -> "YYYY-MM-DD" (yerel güne göre) */
 export const toDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** "YYYY-MM-DD" -> yerel Date (gün başı) */
+export const fromDay = (day: string) => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+export const addDays = (day: string, n: number) => {
+  const d = fromDay(day);
+  d.setDate(d.getDate() + n);
+  return toDay(d);
+};
 /** "YYYY-MM-DD" -> "GG.AA.YYYY" */
 export const formatDay = (day: string) => day.split('-').reverse().join('.');

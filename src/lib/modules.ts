@@ -14,7 +14,7 @@ export type Module = {
 };
 
 export const OPERASYON: Module[] = [
-  { slug: 'ucus', title: '✈️ Uçuş Trafiği FIDS', desc: 'Uçuş akışını ve bagaj yoğunluğunu takip edin.', icon: Plane, color: C.blue, iconBg: '#2f3350', badge: 'Operasyon', href: '/modul/ucus' },
+  { slug: 'ucus', title: '✈️ Uçuş Trafiği FIDS', desc: 'Uçuş akışını ve bagaj yoğunluğunu takip edin.', icon: Plane, color: C.blue, iconBg: '#2f3350', badge: 'Operasyon', href: '/ucus' },
   { slug: 'ariza', title: '🚨 Arıza Bildirimi', desc: 'Saha arızasını bildirin, kayıtları ve durumları izleyin.', icon: TriangleAlert, color: '#f5a524', iconBg: '#4a3516', badge: 'Operasyon', href: '/arizalar' },
   { slug: 'personel', title: '👷 Personel Takibi', desc: 'Ekiplerin bölge ve vardiya durumunu görün.', icon: MapPin, color: C.amber, iconBg: '#4a4220', badge: 'Operasyon', href: '/personel' },
   { slug: 'vardiya', title: '🕒 Vardiya Durumu', desc: 'Bugünkü aktif personeli ve vardiya notlarını açın.', icon: CalendarDays, color: '#fb7185', iconBg: '#4a2a30', badge: 'Operasyon', href: '/vardiya' },

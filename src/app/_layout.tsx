@@ -37,6 +37,8 @@ function Nav() {
         <Stack.Screen name="bildiri/arsiv" options={{ title: 'Bildiri Arşivi' }} />
         <Stack.Screen name="modul/[slug]" options={{ title: '' }} />
         <Stack.Screen name="operasyon-takip" options={{ title: '' }} />
+        <Stack.Screen name="ucus" options={{ title: '' }} />
+        <Stack.Screen name="personel/[id]" options={{ title: 'Personel' }} />
         <Stack.Screen name="tutanak/[id]" options={{ title: 'Tutanak' }} />
         <Stack.Screen name="tutanak/duzenle" options={{ title: 'Tutanak' }} />
         <Stack.Screen name="profil" options={{ title: 'Kişisel Profil' }} />

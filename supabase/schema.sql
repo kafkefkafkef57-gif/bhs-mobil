@@ -122,6 +122,45 @@ drop policy if exists tasks_all on public.tasks;
 create policy tasks_all on public.tasks for all to authenticated
   using (public.is_approved()) with check (public.is_approved());
 
+-- ---------- Personel ve çalışma planı ----------
+create table if not exists public.staff (
+  id uuid primary key default gen_random_uuid(),
+  sicil text not null unique,
+  full_name text not null,
+  title text not null default '',
+  department text not null check (department in ('Operasyon', 'Teknik')),
+  sort_no int not null default 0
+);
+create table if not exists public.staff_shifts (
+  staff_id uuid not null references public.staff (id) on delete cascade,
+  day date not null,
+  value text not null, -- "08:30-20:30", "T", "Yİ" ...
+  primary key (staff_id, day)
+);
+create table if not exists public.staff_assignments (
+  staff_id uuid not null references public.staff (id) on delete cascade,
+  day date not null,
+  location text not null check (location in ('T1', 'T2', 'Yeni Şut Altı')),
+  assigned_by uuid default auth.uid() references public.profiles (id),
+  primary key (staff_id, day)
+);
+alter table public.staff enable row level security;
+alter table public.staff_shifts enable row level security;
+alter table public.staff_assignments enable row level security;
+-- Herkes (onaylı) görür; personel listesini, planı ve görev yeri atamasını yalnızca yönetici değiştirir.
+drop policy if exists staff_select on public.staff;
+create policy staff_select on public.staff for select to authenticated using (public.is_approved());
+drop policy if exists staff_admin on public.staff;
+create policy staff_admin on public.staff for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_shifts_select on public.staff_shifts;
+create policy staff_shifts_select on public.staff_shifts for select to authenticated using (public.is_approved());
+drop policy if exists staff_shifts_admin on public.staff_shifts;
+create policy staff_shifts_admin on public.staff_shifts for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_assignments_select on public.staff_assignments;
+create policy staff_assignments_select on public.staff_assignments for select to authenticated using (public.is_approved());
+drop policy if exists staff_assignments_admin on public.staff_assignments;
+create policy staff_assignments_admin on public.staff_assignments for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
 -- ---------- Fotoğraf deposu ----------
 insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
   on conflict (id) do nothing;
@@ -133,7 +172,7 @@ create policy photos_insert on storage.objects for insert to authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles', 'notices', 'faults', 'reports', 'tasks'] loop
+  foreach t in array array['profiles', 'notices', 'faults', 'reports', 'tasks', 'staff_assignments'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;

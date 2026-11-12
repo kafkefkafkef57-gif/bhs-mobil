@@ -1,5 +1,6 @@
 import { isDemo, supabase } from './supabase';
-import { Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { Location, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { addDays, toDay } from './format';
 
 export interface Api {
   signIn(email: string, password: string): Promise<void>;
@@ -21,6 +22,11 @@ export interface Api {
   saveTask(input: TaskInput): Promise<void>;
   setTaskStatus(id: string, status: TaskStatus | null): Promise<void>;
   todayFaultCount(): Promise<number>;
+  listStaff(): Promise<Staff[]>;
+  /** from–to (dahil) aralığındaki plan; staffId verilirse yalnızca o kişi. */
+  listShifts(from: string, to: string, staffId?: string): Promise<StaffShift[]>;
+  listAssignments(day: string): Promise<StaffAssignment[]>;
+  setAssignment(staffId: string, day: string, location: Location | null): Promise<void>;
   subscribe(tables: Table[], cb: () => void): () => void;
 }
 
@@ -161,6 +167,29 @@ const supaApi: Api = {
     const { error } = await supabase.from('tasks').update({ status }).eq('id', id);
     fail(error);
   },
+  async listStaff() {
+    const { data, error } = await supabase.from('staff').select('*').order('sort_no');
+    fail(error);
+    return (data ?? []) as Staff[];
+  },
+  async listShifts(from, to, staffId) {
+    let q = supabase.from('staff_shifts').select('staff_id, day, value').gte('day', from).lte('day', to);
+    if (staffId) q = q.eq('staff_id', staffId);
+    const { data, error } = await q.limit(5000);
+    fail(error);
+    return (data ?? []) as StaffShift[];
+  },
+  async listAssignments(day) {
+    const { data, error } = await supabase.from('staff_assignments').select('staff_id, day, location').eq('day', day);
+    fail(error);
+    return (data ?? []) as StaffAssignment[];
+  },
+  async setAssignment(staffId, day, location) {
+    const { error } = location
+      ? await supabase.from('staff_assignments').upsert({ staff_id: staffId, day, location })
+      : await supabase.from('staff_assignments').delete().eq('staff_id', staffId).eq('day', day);
+    fail(error);
+  },
   subscribe(tables, cb) {
     let ch = supabase.channel(`live-${Math.random().toString(36).slice(2)}`);
     for (const table of tables) ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, cb);
@@ -193,6 +222,24 @@ const demo = {
   ] as Task[],
   listeners: new Set<() => void>(),
 };
+
+// Uydurma personel ve içinde bulunulan ay için tatil / gündüz / gece döngüsüyle örnek plan.
+const DEMO_STAFF: [string, string, Staff['department']][] = [
+  ['Deniz Aksoy', 'Ekip Sorumlusu', 'Operasyon'], ['Ece Yıldız', 'Operatör', 'Operasyon'], ['Burak Şahin', 'Operatör', 'Operasyon'],
+  ['Selin Koç', 'Uzm. Operatör', 'Operasyon'], ['Onur Çelik', 'Kd. Ekip Sorumlusu', 'Teknik'], ['Zeynep Arslan', 'Teknisyen', 'Teknik'],
+  ['Emre Doğan', 'Teknisyen', 'Teknik'], ['Merve Kılıç', 'Operatör', 'Operasyon'], ['Can Öztürk', 'Kd. Teknisyen', 'Teknik'],
+  ['Elif Aydın', 'Operatör', 'Operasyon'], ['Kaan Polat', 'Ekip Sorumlusu', 'Teknik'], ['Aslı Güler', 'Operatör', 'Operasyon'],
+];
+const demoStaff: Staff[] = DEMO_STAFF.map(([full_name, title, department], i) => ({ id: `s${i}`, sicil: String(3100 + i * 7), full_name, title, department, sort_no: i }));
+const demoShifts: StaffShift[] = (() => {
+  const first = new Date();
+  first.setDate(1);
+  const start = addDays(toDay(first), -1); // bir önceki ayın son günü de olsun (gece vardiyası devri)
+  const cycle = ['T', '08:30-20:30', '20:30-08:30', 'T'];
+  return demoStaff.flatMap((st, i) => Array.from({ length: 33 }, (_, d) => ({ staff_id: st.id, day: addDays(start, d), value: i === 3 && d === 9 ? 'Yİ' : cycle[(d + i) % 4] })));
+})();
+const demoAssignments: StaffAssignment[] = [];
+
 const emit = () => demo.listeners.forEach((l) => l());
 const listen = (cb: () => void) => {
   const l = () => cb(); // aynı fonksiyon iki kez kaydedilse de abonelikler birbirinden bağımsız kalsın
@@ -284,6 +331,21 @@ const demoApi: Api = {
   async todayFaultCount() {
     const t = startOfToday().getTime();
     return demo.faults.filter((f) => new Date(f).getTime() >= t).length;
+  },
+  async listStaff() {
+    return demoStaff;
+  },
+  async listShifts(from, to, staffId) {
+    return demoShifts.filter((x) => x.day >= from && x.day <= to && (!staffId || x.staff_id === staffId));
+  },
+  async listAssignments(day) {
+    return demoAssignments.filter((a) => a.day === day);
+  },
+  async setAssignment(staffId, day, location) {
+    const i = demoAssignments.findIndex((a) => a.staff_id === staffId && a.day === day);
+    if (i >= 0) demoAssignments.splice(i, 1);
+    if (location) demoAssignments.push({ staff_id: staffId, day, location });
+    emit();
   },
   subscribe: (_tables, cb) => listen(cb),
 };
