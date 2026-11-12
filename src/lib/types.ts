@@ -27,4 +27,34 @@ export type Notice = {
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
 export type SignUpInput = { full_name: string; phone: string; email: string; password: string };
-export type Table = 'profiles' | 'notices' | 'faults';
+export type Table = 'profiles' | 'notices' | 'faults' | 'reports' | 'tasks';
+
+/** Olay tutanağı (yer hizmetleri kazaları). */
+export type Report = {
+  id: string;
+  no: number;
+  incident_at: string;
+  officer: string;
+  staff_name: string;
+  company: string;
+  summary: string;
+  photo_urls: string[];
+  created_by: string;
+  created_at: string;
+};
+export type ReportInput = Pick<Report, 'incident_at' | 'officer' | 'staff_name' | 'company' | 'summary' | 'photo_urls'>;
+
+export type Shift = 'A' | 'B' | 'C' | 'D';
+/** Operasyon takip görevi (hat temizliği vb.). */
+export type Task = {
+  id: string;
+  title: string;
+  shift: Shift;
+  due_date: string; // YYYY-MM-DD
+  description: string;
+  photo_url: string | null;
+  done_at: string | null;
+  created_by: string;
+  created_at: string;
+};
+export type TaskInput = Pick<Task, 'title' | 'shift' | 'due_date' | 'description' | 'photo_url'>;

@@ -1,5 +1,5 @@
 import { isDemo, supabase } from './supabase';
-import { Notice, NoticeInput, Photo, Profile, SignUpInput, Status, Table } from './types';
+import { Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Status, Table, Task, TaskInput } from './types';
 
 export interface Api {
   signIn(email: string, password: string): Promise<void>;
@@ -13,7 +13,13 @@ export interface Api {
   getNotice(id: string): Promise<Notice | null>;
   saveNotice(input: NoticeInput, id?: string): Promise<void>;
   completeNotice(id: string): Promise<void>;
-  uploadPhoto(photo: Photo): Promise<string>;
+  uploadPhoto(photo: Photo, folder?: string): Promise<string>;
+  listReports(): Promise<Report[]>;
+  getReport(id: string): Promise<Report | null>;
+  saveReport(input: ReportInput, id?: string): Promise<void>;
+  listTasks(): Promise<Task[]>;
+  saveTask(input: TaskInput): Promise<void>;
+  setTaskDone(id: string, done: boolean): Promise<void>;
   todayFaultCount(): Promise<number>;
   subscribe(tables: Table[], cb: () => void): () => void;
 }
@@ -112,10 +118,10 @@ const supaApi: Api = {
     const { error } = await supabase.from('notices').update({ completed_at: new Date().toISOString() }).eq('id', id);
     fail(error);
   },
-  async uploadPhoto(photo) {
+  async uploadPhoto(photo, folder = 'bildiri') {
     const type = photo.mimeType ?? 'image/jpeg';
     const body = photo.base64 ? decodeBase64(photo.base64) : await (await fetch(photo.uri)).arrayBuffer();
-    const path = `bildiri/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${type.split('/')[1] ?? 'jpg'}`;
+    const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${type.split('/')[1] ?? 'jpg'}`;
     const { error } = await supabase.storage.from('photos').upload(path, body, { contentType: type });
     fail(error);
     return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl;
@@ -127,6 +133,33 @@ const supaApi: Api = {
       .gte('created_at', startOfToday().toISOString());
     fail(error);
     return count ?? 0;
+  },
+  async listReports() {
+    const { data, error } = await supabase.from('reports').select('*').order('incident_at', { ascending: false });
+    fail(error);
+    return (data ?? []) as Report[];
+  },
+  async getReport(id) {
+    const { data, error } = await supabase.from('reports').select('*').eq('id', id).maybeSingle();
+    fail(error);
+    return data as Report | null;
+  },
+  async saveReport(input, id) {
+    const { error } = id ? await supabase.from('reports').update(input).eq('id', id) : await supabase.from('reports').insert(input);
+    fail(error);
+  },
+  async listTasks() {
+    const { data, error } = await supabase.from('tasks').select('*').order('due_date', { ascending: true });
+    fail(error);
+    return (data ?? []) as Task[];
+  },
+  async saveTask(input) {
+    const { error } = await supabase.from('tasks').insert(input);
+    fail(error);
+  },
+  async setTaskDone(id, done) {
+    const { error } = await supabase.from('tasks').update({ done_at: done ? new Date().toISOString() : null }).eq('id', id);
+    fail(error);
   },
   subscribe(tables, cb) {
     let ch = supabase.channel(`live-${Math.random().toString(36).slice(2)}`);
@@ -152,6 +185,12 @@ const demo = {
     { id: 'n1', title: 'Test Bildirisi', body: 'Sistem planlı bakımda', importance: 'normal', photo_url: null, created_by: 'admin', created_at: now(), completed_at: null },
   ] as Notice[],
   faults: [now(), now(), now()],
+  reports: [
+    { id: 'r1', no: 1, incident_at: now(), officer: 'Demo Yönetici', staff_name: 'Ali Kaya', company: 'PCYH', summary: 'Konveyör bandında ufak sıkışma meydana geldi', photo_urls: [], created_by: 'admin', created_at: now() },
+  ] as Report[],
+  tasks: [
+    { id: 't1', title: 'Temizlik', shift: 'A', due_date: now().slice(0, 10), description: '', photo_url: null, done_at: now(), created_by: 'admin', created_at: now() },
+  ] as Task[],
   listeners: new Set<() => void>(),
 };
 const emit = () => demo.listeners.forEach((l) => l());
@@ -216,6 +255,31 @@ const demoApi: Api = {
   },
   async uploadPhoto(photo) {
     return photo.uri;
+  },
+  async listReports() {
+    return [...demo.reports].sort((a, b) => b.incident_at.localeCompare(a.incident_at));
+  },
+  async getReport(id) {
+    const r = demo.reports.find((x) => x.id === id);
+    return r ? { ...r } : null; // kopya: yerinde değişen nesne ekranı yenilemez
+  },
+  async saveReport(input, id) {
+    const old = demo.reports.find((r) => r.id === id);
+    if (old) Object.assign(old, input);
+    else demo.reports.push({ ...input, id: uid(), no: Math.max(0, ...demo.reports.map((r) => r.no)) + 1, created_by: demo.me!, created_at: now() });
+    emit();
+  },
+  async listTasks() {
+    return [...demo.tasks].sort((a, b) => a.due_date.localeCompare(b.due_date));
+  },
+  async saveTask(input) {
+    demo.tasks.push({ ...input, id: uid(), done_at: null, created_by: demo.me!, created_at: now() });
+    emit();
+  },
+  async setTaskDone(id, done) {
+    const t = demo.tasks.find((x) => x.id === id);
+    if (t) t.done_at = done ? now() : null;
+    emit();
   },
   async todayFaultCount() {
     const t = startOfToday().getTime();

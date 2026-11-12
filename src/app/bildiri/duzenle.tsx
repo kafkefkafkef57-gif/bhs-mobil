@@ -1,11 +1,11 @@
-import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { Camera, ImagePlus, Send, Trash2 } from 'lucide-react-native';
+import { Send } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { api } from '../../lib/api';
+import { PhotoField, PhotoItem, uploadAll } from '../../lib/PhotoField';
 import { C } from '../../lib/theme';
-import { Importance, Photo } from '../../lib/types';
+import { Importance } from '../../lib/types';
 import { Btn, ErrorText, Field, IMPORTANCE, s } from '../../lib/ui';
 
 const LEVELS: Importance[] = ['normal', 'onemli', 'acil'];
@@ -16,8 +16,7 @@ export default function BildiriDuzenle() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [importance, setImportance] = useState<Importance>('normal');
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null); // daha önce yüklenmiş fotoğraf
-  const [picked, setPicked] = useState<Photo | null>(null); // yeni seçilen, henüz yüklenmemiş
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,27 +27,16 @@ export default function BildiriDuzenle() {
       setTitle(n.title);
       setBody(n.body);
       setImportance(n.importance);
-      setPhotoUrl(n.photo_url);
+      setPhotos(n.photo_url ? [n.photo_url] : []);
     });
   }, [id]);
-
-  const pick = async (fromCamera: boolean) => {
-    setError(null);
-    if (fromCamera) {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) return setError('Kamera izni verilmedi.');
-    }
-    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, base64: true };
-    const res = fromCamera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
-    if (!res.canceled) setPicked(res.assets[0]);
-  };
 
   const submit = async () => {
     if (!title.trim()) return setError('Başlık girin.');
     setBusy(true);
     setError(null);
     try {
-      const photo_url = picked ? await api.uploadPhoto(picked) : photoUrl;
+      const [photo_url = null] = await uploadAll(photos, 'bildiri');
       await api.saveNotice({ title: title.trim(), body: body.trim(), importance, photo_url }, id);
       router.back();
     } catch (e: any) {
@@ -58,7 +46,6 @@ export default function BildiriDuzenle() {
     }
   };
 
-  const preview = picked?.uri ?? photoUrl;
   return (
     <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen options={{ title: id ? 'Bildiriyi Düzenle' : 'Yeni Bildiri' }} />
@@ -96,25 +83,7 @@ export default function BildiriDuzenle() {
           </View>
         </View>
 
-        <View style={{ gap: 8 }}>
-          <Text style={s.label}>Fotoğraf (isteğe bağlı)</Text>
-          {preview && <Image source={{ uri: preview }} style={{ width: '100%', height: 200, borderRadius: 14 }} resizeMode="cover" accessibilityLabel="Seçilen fotoğraf" />}
-          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-            <Btn label="Galeri" icon={ImagePlus} onPress={() => pick(false)} />
-            <Btn label="Kamera" icon={Camera} onPress={() => pick(true)} />
-            {preview && (
-              <Btn
-                label="Kaldır"
-                icon={Trash2}
-                variant="danger"
-                onPress={() => {
-                  setPicked(null);
-                  setPhotoUrl(null);
-                }}
-              />
-            )}
-          </View>
-        </View>
+        <PhotoField label="Fotoğraf (isteğe bağlı)" value={photos} onChange={setPhotos} />
 
         <ErrorText>{error}</ErrorText>
         <Btn label={id ? 'Değişiklikleri Kaydet' : 'Bildiriyi Yayınla'} icon={Send} variant="primary" onPress={submit} loading={busy} />

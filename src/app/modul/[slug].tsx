@@ -8,7 +8,7 @@ export default function Modul() {
   return (
     <>
       <Stack.Screen options={{ title }} />
-      <Placeholder title={title} />
+      <Placeholder title={title} note={slug === 'veriler' ? 'Günlük şirket verileri bu alana ileride eklenecek.' : undefined} />
     </>
   );
 }
