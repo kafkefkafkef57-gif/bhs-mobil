@@ -16,6 +16,11 @@ export function parseShift(value: string, day: string): ParsedShift {
   return { kind: sh < 12 ? 'gunduz' : 'gece', start, end };
 }
 
+/** Plan kodlarının açıklaması. */
+const CODES: Record<string, string> = { T: 'Tatil', Yİ: 'Yıllık izin', DGİ: 'Doğum günü izni' };
+/** "Yİ" -> "Yıllık izin"; saat aralığı ya da bilinmeyen kod olduğu gibi döner. */
+export const shiftLabel = (value: string) => CODES[value.trim().toLocaleUpperCase('tr')] ?? value;
+
 export const initials = (name: string) => {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toLocaleUpperCase('tr');

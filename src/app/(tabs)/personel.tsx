@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
-import { useAuth } from '../../lib/auth';
 import { DateField } from '../../lib/DateField';
 import { addDays, fromDay, toDay } from '../../lib/format';
 import { PageHeader } from '../../lib/MenuButton';
@@ -31,8 +30,6 @@ const TEAM_OPTIONS: { value: TeamFilter; label: string }[] = [
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
 export default function Personel() {
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === 'admin';
   const [date, setDate] = useState(() => new Date());
   const [loc, setLoc] = useState<LocFilter>('all');
   const [team, setTeam] = useState<TeamFilter>('all');
@@ -124,7 +121,6 @@ export default function Personel() {
           <Text style={s.h2}>Ekip türü</Text>
           <Segmented options={TEAM_OPTIONS} value={team} onChange={setTeam} />
         </View>
-        {!isAdmin && <Text style={[s.muted, { fontSize: 13 }]}>Görev yeri atamasını yönetici yapar.</Text>}
 
         {shown.length === 0 && !error && (
           <Card>
@@ -162,7 +158,7 @@ export default function Personel() {
                 <Text style={[s.muted, { fontSize: 13 }]}>Görev yeri</Text>
                 <Text style={{ color: r.location ? C.text : C.muted, fontSize: 18, fontWeight: '800' }}>{r.location ?? 'Atanmadı'}</Text>
               </View>
-              {isAdmin && <Btn label={r.location ? 'Değiştir' : 'Görev ata'} onPress={() => setAssigning(r)} />}
+              <Btn label={r.location ? 'Değiştir' : 'Görev ata'} onPress={() => setAssigning(r)} />
             </View>
           </Card>
         ))}

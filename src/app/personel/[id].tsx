@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api } from '../../lib/api';
 import { monthName, toDay } from '../../lib/format';
-import { parseShift, ShiftKind } from '../../lib/shift';
+import { parseShift, shiftLabel, ShiftKind } from '../../lib/shift';
 import { C } from '../../lib/theme';
 import { Staff, StaffShift } from '../../lib/types';
 import { useLive } from '../../lib/useLive';
@@ -14,8 +14,8 @@ const DAYS = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
 const KIND: Record<ShiftKind, { label: string; fg: string; bg: string }> = {
   gunduz: { label: 'Gündüz', fg: C.amber, bg: C.amberBg },
   gece: { label: 'Gece', fg: C.blue, bg: '#2f3350' },
-  tatil: { label: 'T', fg: C.muted, bg: C.cardHi },
-  izin: { label: 'İzin / diğer', fg: C.red, bg: C.redBg },
+  tatil: { label: 'Tatil (T)', fg: C.muted, bg: C.cardHi },
+  izin: { label: 'İzin (Yİ, DGİ)', fg: C.red, bg: C.redBg },
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -73,7 +73,7 @@ export default function PersonelDetay() {
             <Row label="Sicil numarası" value={person.sicil} />
             <Row label="Unvan" value={person.title} />
             <Row label="Departman" value={person.department} />
-            {todayValue && <Row label="Bugünkü vardiya" value={todayValue} />}
+            {todayValue && <Row label="Bugün" value={shiftLabel(todayValue)} />}
           </Card>
         </>
       )}
@@ -103,7 +103,7 @@ export default function PersonelDetay() {
             const k = value ? KIND[parseShift(value, day).kind] : null;
             const [a, b] = value?.includes('-') ? value.split('-') : [value ?? '', ''];
             return (
-              <View key={day} style={st.cell} accessibilityLabel={`${Number(day.slice(8))} ${monthName(view.m)}: ${value ?? 'plan yok'}`}>
+              <View key={day} style={st.cell} accessibilityLabel={`${Number(day.slice(8))} ${monthName(view.m)}: ${value ? shiftLabel(value) : 'plan yok'}`}>
                 <View style={[st.inner, k && { backgroundColor: k.bg }, day === today && { borderColor: C.text, borderWidth: 2 }]}>
                   <Text style={{ color: C.text, fontSize: 14, fontWeight: '800' }}>{Number(day.slice(8))}</Text>
                   <Text style={{ color: k?.fg ?? C.muted, fontSize: 10, fontWeight: '700' }} numberOfLines={1}>

@@ -147,7 +147,7 @@ create table if not exists public.staff_assignments (
 alter table public.staff enable row level security;
 alter table public.staff_shifts enable row level security;
 alter table public.staff_assignments enable row level security;
--- Herkes (onaylı) görür; personel listesini, planı ve görev yeri atamasını yalnızca yönetici değiştirir.
+-- Herkes (onaylı) görür ve görev yeri ataması yapabilir; personel listesini ve planı yalnızca yönetici değiştirir.
 drop policy if exists staff_select on public.staff;
 create policy staff_select on public.staff for select to authenticated using (public.is_approved());
 drop policy if exists staff_admin on public.staff;
@@ -159,7 +159,8 @@ create policy staff_shifts_admin on public.staff_shifts for all to authenticated
 drop policy if exists staff_assignments_select on public.staff_assignments;
 create policy staff_assignments_select on public.staff_assignments for select to authenticated using (public.is_approved());
 drop policy if exists staff_assignments_admin on public.staff_assignments;
-create policy staff_assignments_admin on public.staff_assignments for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_assignments_write on public.staff_assignments;
+create policy staff_assignments_write on public.staff_assignments for all to authenticated using (public.is_approved()) with check (public.is_approved());
 
 -- ---------- Fotoğraf deposu ----------
 insert into storage.buckets (id, name, public) values ('photos', 'photos', true)

@@ -1,6 +1,7 @@
 import { isDemo, supabase } from './supabase';
 import { Location, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
 import { addDays, toDay } from './format';
+import { PlanRow } from './planImport';
 
 export interface Api {
   signIn(email: string, password: string): Promise<void>;
@@ -27,6 +28,8 @@ export interface Api {
   listShifts(from: string, to: string, staffId?: string): Promise<StaffShift[]>;
   listAssignments(day: string): Promise<StaffAssignment[]>;
   setAssignment(staffId: string, day: string, location: Location | null): Promise<void>;
+  /** Excel'den okunan aylık planı kaydeder (yalnızca yönetici). Aynı sicil/gün varsa günceller. */
+  importPlan(rows: PlanRow[]): Promise<void>;
   subscribe(tables: Table[], cb: () => void): () => void;
 }
 
@@ -190,6 +193,18 @@ const supaApi: Api = {
       : await supabase.from('staff_assignments').delete().eq('staff_id', staffId).eq('day', day);
     fail(error);
   },
+  async importPlan(rows) {
+    const { error } = await supabase.from('staff').upsert(rows.map(({ shifts: _s, ...st }) => st), { onConflict: 'sicil' });
+    fail(error);
+    const { data, error: e2 } = await supabase.from('staff').select('id, sicil');
+    fail(e2);
+    const idOf = new Map((data ?? []).map((x) => [x.sicil as string, x.id as string]));
+    const shifts = rows.flatMap((r) => r.shifts.map((x) => ({ staff_id: idOf.get(r.sicil)!, day: x.day, value: x.value })));
+    for (let i = 0; i < shifts.length; i += 500) {
+      const { error: e3 } = await supabase.from('staff_shifts').upsert(shifts.slice(i, i + 500));
+      fail(e3);
+    }
+  },
   subscribe(tables, cb) {
     let ch = supabase.channel(`live-${Math.random().toString(36).slice(2)}`);
     for (const table of tables) ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, cb);
@@ -230,8 +245,8 @@ const DEMO_STAFF: [string, string, Staff['department']][] = [
   ['Emre Doğan', 'Teknisyen', 'Teknik'], ['Merve Kılıç', 'Operatör', 'Operasyon'], ['Can Öztürk', 'Kd. Teknisyen', 'Teknik'],
   ['Elif Aydın', 'Operatör', 'Operasyon'], ['Kaan Polat', 'Ekip Sorumlusu', 'Teknik'], ['Aslı Güler', 'Operatör', 'Operasyon'],
 ];
-const demoStaff: Staff[] = DEMO_STAFF.map(([full_name, title, department], i) => ({ id: `s${i}`, sicil: String(3100 + i * 7), full_name, title, department, sort_no: i }));
-const demoShifts: StaffShift[] = (() => {
+let demoStaff: Staff[] = DEMO_STAFF.map(([full_name, title, department], i) => ({ id: `s${i}`, sicil: String(3100 + i * 7), full_name, title, department, sort_no: i }));
+let demoShifts: StaffShift[] = (() => {
   const first = new Date();
   first.setDate(1);
   const start = addDays(toDay(first), -1); // bir önceki ayın son günü de olsun (gece vardiyası devri)
@@ -345,6 +360,17 @@ const demoApi: Api = {
     const i = demoAssignments.findIndex((a) => a.staff_id === staffId && a.day === day);
     if (i >= 0) demoAssignments.splice(i, 1);
     if (location) demoAssignments.push({ staff_id: staffId, day, location });
+    emit();
+  },
+  async importPlan(rows) {
+    for (const { shifts, ...st } of rows) {
+      const old = demoStaff.find((x) => x.sicil === st.sicil);
+      const id = old?.id ?? `x${st.sicil}`;
+      demoStaff = [...demoStaff.filter((x) => x.sicil !== st.sicil), { ...st, id }];
+      const days = new Set(shifts.map((x) => x.day));
+      demoShifts = [...demoShifts.filter((x) => x.staff_id !== id || !days.has(x.day)), ...shifts.map((x) => ({ staff_id: id, ...x }))];
+    }
+    demoStaff.sort((a, b) => a.sort_no - b.sort_no);
     emit();
   },
   subscribe: (_tables, cb) => listen(cb),

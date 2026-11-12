@@ -45,6 +45,7 @@ function Nav() {
         <Stack.Screen name="ayarlar" options={{ title: 'Ayarlar' }} />
         <Stack.Protected guard={profile?.role === 'admin'}>
           <Stack.Screen name="yonetici" options={{ title: 'Yönetici Paneli' }} />
+          <Stack.Screen name="plan-yukle" options={{ title: 'Çalışma Programı' }} />
         </Stack.Protected>
       </Stack.Protected>
     </Stack>

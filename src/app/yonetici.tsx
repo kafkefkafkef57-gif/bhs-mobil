@@ -1,4 +1,5 @@
-import { Check, X } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Check, FileSpreadsheet, X } from 'lucide-react-native';
 import { ScrollView, Text, View } from 'react-native';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -56,6 +57,7 @@ export default function Yonetici() {
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
       <ErrorText>{error}</ErrorText>
+      <Btn label="Çalışma Programı Yükle (Excel)" icon={FileSpreadsheet} onPress={() => router.push('/plan-yukle')} />
       <Text style={s.h2}>Onay Bekleyenler ({pending.length})</Text>
       {pending.length === 0 && <Text style={s.muted}>Onay bekleyen kayıt yok.</Text>}
       {pending.map((u) => (
