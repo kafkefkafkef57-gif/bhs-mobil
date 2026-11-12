@@ -1,5 +1,5 @@
 import { isDemo, supabase } from './supabase';
-import { Location, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
 import { addDays, toDay } from './format';
 import { PlanRow } from './planImport';
 
@@ -28,6 +28,13 @@ export interface Api {
   listShifts(from: string, to: string, staffId?: string): Promise<StaffShift[]>;
   listAssignments(day: string): Promise<StaffAssignment[]>;
   setAssignment(staffId: string, day: string, location: Location | null): Promise<void>;
+  /** team verilmezse tüm ekipler. */
+  listShiftEntries(day: string, shift: Shift, team?: ShiftEntry['team']): Promise<ShiftEntry[]>;
+  saveShiftEntry(input: ShiftEntryInput): Promise<void>;
+  /** Aynı gün/vardiya/ekip için rapor varsa yenisiyle değiştirir. */
+  saveShiftReport(day: string, shift: Shift, team: ReportTeam, content: ShiftEntry[]): Promise<void>;
+  listShiftReports(): Promise<ShiftReport[]>;
+  getShiftReport(id: string): Promise<ShiftReport | null>;
   /** Excel'den okunan aylık planı kaydeder (yalnızca yönetici). Aynı sicil/gün varsa günceller. */
   importPlan(rows: PlanRow[]): Promise<void>;
   subscribe(tables: Table[], cb: () => void): () => void;
@@ -63,7 +70,8 @@ function decodeBase64(b64: string): Uint8Array {
 }
 
 const NOTICE_COLS = '*, author:profiles!notices_created_by_fkey(full_name)';
-const toNotice = (r: any): Notice => ({ ...r, author_name: r.author?.full_name, author: undefined });
+const withAuthorName = (r: any) => ({ ...r, author_name: r.author?.full_name, author: undefined });
+const toNotice = (r: any): Notice => withAuthorName(r);
 
 const supaApi: Api = {
   async signIn(email, password) {
@@ -193,6 +201,33 @@ const supaApi: Api = {
       : await supabase.from('staff_assignments').delete().eq('staff_id', staffId).eq('day', day);
     fail(error);
   },
+  async listShiftEntries(day, shift, team) {
+    let q = supabase.from('shift_entries').select('*, author:profiles!shift_entries_created_by_fkey(full_name)').eq('day', day).eq('shift', shift);
+    if (team) q = q.eq('team', team);
+    const { data, error } = await q.order('created_at');
+    fail(error);
+    return (data ?? []).map(withAuthorName) as ShiftEntry[];
+  },
+  async saveShiftEntry(input) {
+    const { error } = await supabase.from('shift_entries').insert(input);
+    fail(error);
+  },
+  async saveShiftReport(day, shift, team, content) {
+    const { data } = await supabase.auth.getSession();
+    const row = { day, shift, team, content, entry_count: content.length, created_by: data.session?.user.id, created_at: new Date().toISOString() };
+    const { error } = await supabase.from('shift_reports').upsert(row, { onConflict: 'day,shift,team' });
+    fail(error);
+  },
+  async listShiftReports() {
+    const { data, error } = await supabase.from('shift_reports').select('*, author:profiles!shift_reports_created_by_fkey(full_name)').order('day', { ascending: false }).order('created_at', { ascending: false });
+    fail(error);
+    return (data ?? []).map(withAuthorName) as ShiftReport[];
+  },
+  async getShiftReport(id) {
+    const { data, error } = await supabase.from('shift_reports').select('*, author:profiles!shift_reports_created_by_fkey(full_name)').eq('id', id).maybeSingle();
+    fail(error);
+    return data ? (withAuthorName(data) as ShiftReport) : null;
+  },
   async importPlan(rows) {
     const { error } = await supabase.from('staff').upsert(rows.map(({ shifts: _s, ...st }) => st), { onConflict: 'sicil' });
     fail(error);
@@ -254,6 +289,11 @@ let demoShifts: StaffShift[] = (() => {
   return demoStaff.flatMap((st, i) => Array.from({ length: 33 }, (_, d) => ({ staff_id: st.id, day: addDays(start, d), value: i === 3 && d === 9 ? 'Yİ' : cycle[(d + i) % 4] })));
 })();
 const demoAssignments: StaffAssignment[] = [];
+const demoEntries: ShiftEntry[] = [
+  { id: 'e1', day: toDay(new Date()), shift: 'A', team: 'Operasyon', kind: 'bildirim', title: 'Hat 3 yoğunluğu', body: 'Sabah 09:00-11:00 arası hat 3 yoğun çalıştı, ek personel yönlendirildi.', photo_url: null, created_by: 'admin', created_at: now() },
+];
+let demoReports: ShiftReport[] = [];
+const demoName = (id: string) => demo.users.find((u) => u.id === id)?.full_name;
 
 const emit = () => demo.listeners.forEach((l) => l());
 const listen = (cb: () => void) => {
@@ -361,6 +401,24 @@ const demoApi: Api = {
     if (i >= 0) demoAssignments.splice(i, 1);
     if (location) demoAssignments.push({ staff_id: staffId, day, location });
     emit();
+  },
+  async listShiftEntries(day, shift, team) {
+    return demoEntries.filter((e) => e.day === day && e.shift === shift && (!team || e.team === team)).map((e) => ({ ...e, author_name: demoName(e.created_by) }));
+  },
+  async saveShiftEntry(input) {
+    demoEntries.push({ ...input, id: uid(), created_by: demo.me!, created_at: now() });
+    emit();
+  },
+  async saveShiftReport(day, shift, team, content) {
+    demoReports = [{ id: uid(), day, shift, team, content, entry_count: content.length, created_by: demo.me!, created_at: now() }, ...demoReports.filter((r) => !(r.day === day && r.shift === shift && r.team === team))];
+    emit();
+  },
+  async listShiftReports() {
+    return demoReports.map((r) => ({ ...r, author_name: demoName(r.created_by) }));
+  },
+  async getShiftReport(id) {
+    const r = demoReports.find((x) => x.id === id);
+    return r ? { ...r, author_name: demoName(r.created_by) } : null;
   },
   async importPlan(rows) {
     for (const { shifts, ...st } of rows) {

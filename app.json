@@ -33,7 +33,8 @@
           "photosPermission": "Bildirilere fotoğraf eklemek için galerinize erişim gerekir.",
           "cameraPermission": "Bildirilere fotoğraf çekmek için kameranıza erişim gerekir."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "scheme": "bhsmobil",
     "backgroundColor": "#111113"

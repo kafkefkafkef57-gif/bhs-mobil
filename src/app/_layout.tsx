@@ -38,6 +38,8 @@ function Nav() {
         <Stack.Screen name="modul/[slug]" options={{ title: '' }} />
         <Stack.Screen name="operasyon-takip" options={{ title: '' }} />
         <Stack.Screen name="ucus" options={{ title: '' }} />
+        <Stack.Screen name="vardiya-paylasim" options={{ title: 'Yeni Vardiya Paylaşımı' }} />
+        <Stack.Screen name="vardiya-raporu/[id]" options={{ title: 'Vardiya Raporu' }} />
         <Stack.Screen name="personel/[id]" options={{ title: 'Personel' }} />
         <Stack.Screen name="tutanak/[id]" options={{ title: 'Tutanak' }} />
         <Stack.Screen name="tutanak/duzenle" options={{ title: 'Tutanak' }} />

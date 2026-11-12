@@ -162,6 +162,40 @@ drop policy if exists staff_assignments_admin on public.staff_assignments;
 drop policy if exists staff_assignments_write on public.staff_assignments;
 create policy staff_assignments_write on public.staff_assignments for all to authenticated using (public.is_approved()) with check (public.is_approved());
 
+-- ---------- Vardiya akışı ve vardiya raporları ----------
+create table if not exists public.shift_entries (
+  id uuid primary key default gen_random_uuid(),
+  day date not null,
+  shift text not null check (shift in ('A', 'B', 'C', 'D')),
+  team text not null check (team in ('Operasyon', 'Teknik')),
+  kind text not null check (kind in ('bildirim', 'not', 'rutin', 'devir')),
+  title text not null,
+  body text not null default '',
+  photo_url text,
+  created_by uuid not null default auth.uid() references public.profiles (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists shift_entries_day_idx on public.shift_entries (day, shift);
+create table if not exists public.shift_reports (
+  id uuid primary key default gen_random_uuid(),
+  day date not null,
+  shift text not null check (shift in ('A', 'B', 'C', 'D')),
+  team text not null check (team in ('Operasyon', 'Teknik', 'Tümü')),
+  entry_count int not null default 0,
+  content jsonb not null default '[]', -- rapor oluşturulduğu andaki kayıtların kopyası
+  created_by uuid not null default auth.uid() references public.profiles (id),
+  created_at timestamptz not null default now(),
+  unique (day, shift, team)
+);
+alter table public.shift_entries enable row level security;
+alter table public.shift_reports enable row level security;
+drop policy if exists shift_entries_all on public.shift_entries;
+create policy shift_entries_all on public.shift_entries for all to authenticated
+  using (public.is_approved()) with check (public.is_approved());
+drop policy if exists shift_reports_all on public.shift_reports;
+create policy shift_reports_all on public.shift_reports for all to authenticated
+  using (public.is_approved()) with check (public.is_approved());
+
 -- ---------- Fotoğraf deposu ----------
 insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
   on conflict (id) do nothing;
@@ -173,7 +207,7 @@ create policy photos_insert on storage.objects for insert to authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles', 'notices', 'faults', 'reports', 'tasks', 'staff_assignments'] loop
+  foreach t in array array['profiles', 'notices', 'faults', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;

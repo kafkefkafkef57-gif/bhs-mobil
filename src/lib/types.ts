@@ -27,7 +27,37 @@ export type Notice = {
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
 export type SignUpInput = { full_name: string; phone: string; email: string; password: string };
-export type Table = 'profiles' | 'notices' | 'faults' | 'reports' | 'tasks' | 'staff_assignments';
+export type Table = 'profiles' | 'notices' | 'faults' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
+
+export type EntryKind = 'bildirim' | 'not' | 'rutin' | 'devir';
+/** Bir vardiyanın gün içindeki paylaşımı (bildirim, not, rutin, devir notu). */
+export type ShiftEntry = {
+  id: string;
+  day: string; // YYYY-MM-DD
+  shift: Shift;
+  team: Department;
+  kind: EntryKind;
+  title: string;
+  body: string;
+  photo_url: string | null;
+  created_by: string;
+  author_name?: string;
+  created_at: string;
+};
+export type ShiftEntryInput = Pick<ShiftEntry, 'day' | 'shift' | 'team' | 'kind' | 'title' | 'body' | 'photo_url'>;
+export type ReportTeam = Department | 'Tümü';
+/** Oluşturulmuş vardiya raporu; içerik o andaki kayıtların kopyasıdır. */
+export type ShiftReport = {
+  id: string;
+  day: string;
+  shift: Shift;
+  team: ReportTeam;
+  entry_count: number;
+  content: ShiftEntry[];
+  created_by: string;
+  author_name?: string;
+  created_at: string;
+};
 
 export type Department = 'Operasyon' | 'Teknik';
 /** Çalışma planındaki personel (uygulama kullanıcısından bağımsız). */
