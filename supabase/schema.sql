@@ -110,10 +110,13 @@ create table if not exists public.tasks (
   due_date date not null default current_date,
   description text not null default '',
   photo_url text,
-  done_at timestamptz,
+  status text check (status in ('yapildi', 'yapilmadi')), -- boş: henüz işaretlenmedi
   created_by uuid not null default auth.uid() references public.profiles (id),
   created_at timestamptz not null default now()
 );
+-- Tablo eski haliyle kurulduysa yeni düzene geçir.
+alter table public.tasks add column if not exists status text check (status in ('yapildi', 'yapilmadi'));
+alter table public.tasks drop column if exists done_at;
 alter table public.tasks enable row level security;
 drop policy if exists tasks_all on public.tasks;
 create policy tasks_all on public.tasks for all to authenticated

@@ -7,18 +7,21 @@ import { DateField } from '../lib/DateField';
 import { formatDay, toDay } from '../lib/format';
 import { PhotoField, PhotoItem, uploadAll } from '../lib/PhotoField';
 import { C } from '../lib/theme';
-import { Shift, Task } from '../lib/types';
+import { Shift, Task, TaskStatus } from '../lib/types';
 import { useLive } from '../lib/useLive';
 import { Badge, Btn, Card, ErrorText, Field, s } from '../lib/ui';
 
 const SHIFTS: Shift[] = ['A', 'B', 'C', 'D'];
+const OPTIONS: { value: TaskStatus; label: string; icon: typeof Check; fg: string; bg: string }[] = [
+  { value: 'yapildi', label: 'Yapıldı', icon: Check, fg: C.green, bg: C.greenBg },
+  { value: 'yapilmadi', label: 'Yapılmadı', icon: X, fg: C.red, bg: C.redBg },
+];
 
 export default function OperasyonTakip() {
   const { data, error } = useLive(() => api.listTasks(), ['tasks'], [] as Task[]);
   const [adding, setAdding] = useState(false);
-  // Bekleyenler tarihe göre üstte, tamamlananlar altta.
-  const tasks = [...data.filter((t) => !t.done_at), ...data.filter((t) => t.done_at).reverse()];
-  const today = toDay(new Date());
+  // İşaretlenmemiş görevler tarihe göre üstte, işaretlenenler altta.
+  const tasks = [...data.filter((t) => !t.status), ...data.filter((t) => t.status).reverse()];
 
   return (
     <View style={s.screen}>
@@ -36,31 +39,40 @@ export default function OperasyonTakip() {
           </Card>
         )}
         {tasks.map((t) => {
-          const done = !!t.done_at;
-          const late = !done && t.due_date < today;
+          const badge = t.status === 'yapildi' ? { label: 'Yapıldı', fg: C.green, bg: C.greenBg } : t.status === 'yapilmadi' ? { label: 'Yapılmadı', fg: C.red, bg: C.redBg } : { label: 'Bekliyor', fg: C.amber, bg: C.amberBg };
           return (
-            <Card key={t.id} style={{ gap: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Pressable
-                  onPress={() => api.setTaskDone(t.id, !done)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: done }}
-                  accessibilityLabel={`${t.title} tamamlandı`}
-                  hitSlop={10}
-                  style={[st.check, done && { backgroundColor: C.seg, borderColor: C.seg }]}
-                >
-                  {done && <Check color={C.text} size={18} />}
-                </Pressable>
+            <Card key={t.id} style={{ gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[{ color: C.text, fontSize: 17, fontWeight: '700' }, done && { textDecorationLine: 'line-through', color: C.muted }]}>{t.title}</Text>
+                  <Text style={[{ color: C.text, fontSize: 17, fontWeight: '700' }, t.status === 'yapildi' && { textDecorationLine: 'line-through', color: C.muted }]}>{t.title}</Text>
                   <Text style={s.muted}>
                     {formatDay(t.due_date)} · {t.shift} Vardiyası
                   </Text>
                 </View>
-                {done ? <Badge label="Tamamlandı" fg={C.green} bg={C.greenBg} /> : late ? <Badge label="Gecikti" fg={C.red} bg={C.redBg} /> : <Badge label="Bekliyor" fg={C.amber} bg={C.amberBg} />}
+                <Badge {...badge} />
               </View>
               {!!t.description && <Text style={{ color: C.text, fontSize: 15, lineHeight: 21 }}>{t.description}</Text>}
               {!!t.photo_url && <Image source={{ uri: t.photo_url }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="cover" accessibilityLabel="Görev fotoğrafı" />}
+              {/* Seçili olana tekrar dokunmak işareti kaldırır. */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                {OPTIONS.map((o) => {
+                  const on = t.status === o.value;
+                  const Icon = o.icon;
+                  return (
+                    <Pressable
+                      key={o.value}
+                      onPress={() => api.setTaskStatus(t.id, on ? null : o.value)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={`${t.title}: ${o.label}`}
+                      style={[st.option, on && { backgroundColor: o.bg, borderColor: o.fg }]}
+                    >
+                      <Icon color={on ? o.fg : C.muted} size={18} />
+                      <Text style={{ color: on ? o.fg : C.text, fontSize: 15, fontWeight: '700' }}>{o.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </Card>
           );
         })}
@@ -134,7 +146,7 @@ function NewTask({ onClose }: { onClose: () => void }) {
 
 const st = StyleSheet.create({
   add: { width: 46, height: 46, borderRadius: 14, backgroundColor: C.cardHi, alignItems: 'center', justifyContent: 'center' },
-  check: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, borderColor: C.muted, alignItems: 'center', justifyContent: 'center' },
+  option: { flex: 1, flexDirection: 'row', gap: 8, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: C.bg },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, gap: 14, maxHeight: '92%' },
   handle: { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: C.border },

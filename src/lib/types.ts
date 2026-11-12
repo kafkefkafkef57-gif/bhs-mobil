@@ -45,6 +45,7 @@ export type Report = {
 export type ReportInput = Pick<Report, 'incident_at' | 'officer' | 'staff_name' | 'company' | 'summary' | 'photo_urls'>;
 
 export type Shift = 'A' | 'B' | 'C' | 'D';
+export type TaskStatus = 'yapildi' | 'yapilmadi';
 /** Operasyon takip görevi (hat temizliği vb.). */
 export type Task = {
   id: string;
@@ -53,7 +54,7 @@ export type Task = {
   due_date: string; // YYYY-MM-DD
   description: string;
   photo_url: string | null;
-  done_at: string | null;
+  status: TaskStatus | null; // null: henüz işaretlenmedi
   created_by: string;
   created_at: string;
 };

@@ -10,7 +10,7 @@ import { C } from '../../lib/theme';
 import { Btn, ErrorText, Field, s } from '../../lib/ui';
 
 /** Sık kullanılan firmalar; listede olmayan firma elle yazılabilir. */
-const COMPANIES = ['PCYH', 'TGS', 'HAVAŞ', 'ÇELEBİ'];
+const COMPANIES = ['ÇELEBİ', 'PCYH', 'TGS'];
 
 /** Yeni olay tutanağı oluşturma ve (id verilirse) düzenleme ekranı. */
 export default function TutanakDuzenle() {

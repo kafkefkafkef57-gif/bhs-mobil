@@ -1,5 +1,5 @@
 import { isDemo, supabase } from './supabase';
-import { Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Status, Table, Task, TaskInput } from './types';
+import { Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Status, Table, Task, TaskInput, TaskStatus } from './types';
 
 export interface Api {
   signIn(email: string, password: string): Promise<void>;
@@ -19,7 +19,7 @@ export interface Api {
   saveReport(input: ReportInput, id?: string): Promise<void>;
   listTasks(): Promise<Task[]>;
   saveTask(input: TaskInput): Promise<void>;
-  setTaskDone(id: string, done: boolean): Promise<void>;
+  setTaskStatus(id: string, status: TaskStatus | null): Promise<void>;
   todayFaultCount(): Promise<number>;
   subscribe(tables: Table[], cb: () => void): () => void;
 }
@@ -157,8 +157,8 @@ const supaApi: Api = {
     const { error } = await supabase.from('tasks').insert(input);
     fail(error);
   },
-  async setTaskDone(id, done) {
-    const { error } = await supabase.from('tasks').update({ done_at: done ? new Date().toISOString() : null }).eq('id', id);
+  async setTaskStatus(id, status) {
+    const { error } = await supabase.from('tasks').update({ status }).eq('id', id);
     fail(error);
   },
   subscribe(tables, cb) {
@@ -189,7 +189,7 @@ const demo = {
     { id: 'r1', no: 1, incident_at: now(), officer: 'Demo Yönetici', staff_name: 'Ali Kaya', company: 'PCYH', summary: 'Konveyör bandında ufak sıkışma meydana geldi', photo_urls: [], created_by: 'admin', created_at: now() },
   ] as Report[],
   tasks: [
-    { id: 't1', title: 'Temizlik', shift: 'A', due_date: now().slice(0, 10), description: '', photo_url: null, done_at: now(), created_by: 'admin', created_at: now() },
+    { id: 't1', title: 'Temizlik', shift: 'A', due_date: now().slice(0, 10), description: '', photo_url: null, status: 'yapildi', created_by: 'admin', created_at: now() },
   ] as Task[],
   listeners: new Set<() => void>(),
 };
@@ -270,15 +270,15 @@ const demoApi: Api = {
     emit();
   },
   async listTasks() {
-    return [...demo.tasks].sort((a, b) => a.due_date.localeCompare(b.due_date));
+    return demo.tasks.map((t) => ({ ...t })).sort((a, b) => a.due_date.localeCompare(b.due_date));
   },
   async saveTask(input) {
-    demo.tasks.push({ ...input, id: uid(), done_at: null, created_by: demo.me!, created_at: now() });
+    demo.tasks.push({ ...input, id: uid(), status: null, created_by: demo.me!, created_at: now() });
     emit();
   },
-  async setTaskDone(id, done) {
+  async setTaskStatus(id, status) {
     const t = demo.tasks.find((x) => x.id === id);
-    if (t) t.done_at = done ? now() : null;
+    if (t) t.status = status;
     emit();
   },
   async todayFaultCount() {
