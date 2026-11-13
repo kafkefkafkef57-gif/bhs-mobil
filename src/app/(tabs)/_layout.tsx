@@ -1,26 +1,33 @@
 import { Tabs } from 'expo-router';
-import { CalendarDays, FileText, LayoutGrid, LucideIcon, MapPin, TriangleAlert } from 'lucide-react-native';
+import { CalendarDays, ClipboardList, FileText, LayoutGrid, LucideIcon, MapPin, Package, TriangleAlert, Wrench } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Area, AreaProvider, useArea } from '../../lib/area';
 import { C } from '../../lib/theme';
 
-const TABS: Record<string, { label: string; icon: LucideIcon }> = {
+// area verilmeyen sekme (Ana Ekran) her iki çalışma alanında da görünür.
+const TABS: Record<string, { label: string; icon: LucideIcon; area?: Area }> = {
   index: { label: '🏠 Ana Ekran', icon: LayoutGrid },
-  personel: { label: '👷 Personel', icon: MapPin },
-  vardiya: { label: '🕒 Vardiya', icon: CalendarDays },
-  arizalar: { label: '🚨 Arızalar', icon: TriangleAlert },
-  tutanaklar: { label: '📝 Tutanaklar', icon: FileText },
+  personel: { label: '👷 Personel', icon: MapPin, area: 'operasyon' },
+  vardiya: { label: '🕒 Vardiya', icon: CalendarDays, area: 'operasyon' },
+  arizalar: { label: '🚨 Arızalar', icon: TriangleAlert, area: 'operasyon' },
+  tutanaklar: { label: '📝 Tutanaklar', icon: FileText, area: 'operasyon' },
+  'is-emirleri': { label: '📋 İş Emirleri', icon: ClipboardList, area: 'teknik' },
+  'gunluk-bakim': { label: '🛠️ Günlük Bakım', icon: Wrench, area: 'teknik' },
+  depo: { label: '📦 Depo', icon: Package, area: 'teknik' },
+  'teknik-bakim': { label: '🧰 Teknik Bakım', icon: Wrench, area: 'teknik' },
 };
 
 /** Ekranın altında yüzen, yana kaydırılabilen sekme çubuğu. */
 function TabBar({ state, navigateToTab }: { state: any; navigateToTab: (routeKey: string) => void }) {
   const insets = useSafeAreaInsets();
+  const { area } = useArea();
   return (
     <View style={[st.wrap, { bottom: insets.bottom + 12 }]}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.row}>
         {state.routes.map((route: any, i: number) => {
           const tab = TABS[route.name];
-          if (!tab) return null;
+          if (!tab || (tab.area && tab.area !== area)) return null;
           const active = state.index === i;
           const Icon = tab.icon;
           return (
@@ -45,13 +52,19 @@ function TabBar({ state, navigateToTab }: { state: any; navigateToTab: (routeKey
 
 export default function TabsLayout() {
   return (
-    <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: C.bg } }}>
+    <AreaProvider>
+      <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: C.bg } }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="personel" />
       <Tabs.Screen name="vardiya" />
       <Tabs.Screen name="arizalar" />
       <Tabs.Screen name="tutanaklar" />
-    </Tabs>
+      <Tabs.Screen name="is-emirleri" />
+      <Tabs.Screen name="gunluk-bakim" />
+      <Tabs.Screen name="depo" />
+      <Tabs.Screen name="teknik-bakim" />
+      </Tabs>
+    </AreaProvider>
   );
 }
 

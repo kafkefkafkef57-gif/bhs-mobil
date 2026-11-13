@@ -25,9 +25,9 @@ export const OPERASYON: Module[] = [
 
 const TEAL = '#5eead4';
 export const TEKNIK: Module[] = [
-  { slug: 'teknik-bakim', title: '🧰 Teknik Bakım ve Envanter', desc: 'Ekipmanları arayın, bakım geçmişini ve yedek parça kullanımını yönetin.', icon: Wrench, color: '#e879f9', iconBg: '#43264a', badge: 'Teknik', href: '/modul/teknik-bakim' },
-  { slug: 'is-emirleri', title: '📋 İş Emirleri', desc: 'Bakım işlerini ve kullanılan malzemeleri yönetin.', icon: ClipboardList, color: TEAL, iconBg: '#1c3f3c', badge: 'Teknik', href: '/modul/is-emirleri' },
-  { slug: 'gunluk-bakim', title: '🛠️ Günlük Bakım', desc: 'Günlük teknik kontrolleri kaydedip arşivleyin.', icon: Wrench, color: '#e879f9', iconBg: '#43264a', badge: 'Teknik', href: '/modul/gunluk-bakim' },
-  { slug: 'depo', title: '📦 Depo Envanteri', desc: 'Malzeme stoklarını ve kritik seviyeleri izleyin.', icon: Package, color: TEAL, iconBg: '#1c3f3c', badge: 'Teknik', href: '/modul/depo' },
+  { slug: 'teknik-bakim', title: '🧰 Teknik Bakım ve Envanter', desc: 'Ekipmanları arayın, bakım geçmişini ve yedek parça kullanımını yönetin.', icon: Wrench, color: '#e879f9', iconBg: '#43264a', badge: 'Teknik', href: '/teknik-bakim' },
+  { slug: 'is-emirleri', title: '📋 İş Emirleri', desc: 'Bakım işlerini ve kullanılan malzemeleri yönetin.', icon: ClipboardList, color: TEAL, iconBg: '#1c3f3c', badge: 'Teknik', href: '/is-emirleri' },
+  { slug: 'gunluk-bakim', title: '🛠️ Günlük Bakım', desc: 'Günlük teknik kontrolleri kaydedip arşivleyin.', icon: Wrench, color: '#e879f9', iconBg: '#43264a', badge: 'Teknik', href: '/gunluk-bakim' },
+  { slug: 'depo', title: '📦 Depo Envanteri', desc: 'Malzeme stoklarını ve kritik seviyeleri izleyin.', icon: Package, color: TEAL, iconBg: '#1c3f3c', badge: 'Teknik', href: '/depo' },
   { slug: 'veriler-teknik', title: 'Veriler', desc: 'Günlük şirket verileri ileride bu alana eklenecek.', icon: Database, color: C.violet, iconBg: C.violetBg, badge: 'Veriler', href: '/modul/veriler' },
 ];

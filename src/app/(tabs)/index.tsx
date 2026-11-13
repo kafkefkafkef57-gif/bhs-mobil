@@ -1,9 +1,9 @@
 import { Link, router } from 'expo-router';
 import { Archive, Bell, Check, Compass, Plus, TriangleAlert, Wrench, X } from 'lucide-react-native';
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
+import { Area, useArea } from '../../lib/area';
 import { useAuth } from '../../lib/auth';
 import { DensityChip } from '../../lib/DensityChip';
 import { MenuButton } from '../../lib/MenuButton';
@@ -15,12 +15,11 @@ import { useLive } from '../../lib/useLive';
 import { WeatherChip } from '../../lib/WeatherChip';
 import { Badge, Btn, Card, confirm, ErrorText, s } from '../../lib/ui';
 
-type Area = 'operasyon' | 'teknik';
 
 export default function AnaEkran() {
   const { profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
-  const [area, setArea] = useState<Area>('operasyon');
+  const { area, setArea } = useArea();
 
   const notices = useLive(() => api.listNotices(false), ['notices'], [] as Notice[]);
   const faults = useLive(() => api.todayFaultCount(), ['faults'], 0);
