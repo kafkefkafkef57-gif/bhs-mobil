@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { DensityChip } from '../../lib/DensityChip';
 import { MenuButton } from '../../lib/MenuButton';
 import { Module, OPERASYON, TEKNIK } from '../../lib/modules';
 import { NoticeCard } from '../../lib/NoticeCard';
@@ -30,8 +31,10 @@ export default function AnaEkran() {
   return (
     <SafeAreaView style={s.screen} edges={['top']}>
       <ScrollView contentContainerStyle={[s.content, { paddingBottom: 120 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
           <WeatherChip />
+          <DensityChip />
+          <View style={{ flex: 1 }} />
           <MenuButton />
         </View>
         <Text style={{ color: C.text, fontSize: 34, fontWeight: '900', textAlign: 'center' }}>BHS</Text>
