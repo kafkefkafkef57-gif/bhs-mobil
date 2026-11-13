@@ -66,6 +66,8 @@ create table if not exists public.notices (
   created_at timestamptz not null default now(),
   completed_at timestamptz
 );
+-- Otomatik bildiriler (ör. hava uyarısı) için tekillik anahtarı: aynı anahtarla ikinci kayıt oluşmaz.
+alter table public.notices add column if not exists auto_key text unique;
 alter table public.notices enable row level security;
 drop policy if exists notices_all on public.notices;
 create policy notices_all on public.notices for all to authenticated

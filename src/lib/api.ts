@@ -15,6 +15,8 @@ export interface Api {
   getNotice(id: string): Promise<Notice | null>;
   saveNotice(input: NoticeInput, id?: string): Promise<void>;
   completeNotice(id: string): Promise<void>;
+  /** Otomatik bildiri: aynı anahtarla daha önce oluşturulmuşsa hiçbir şey yapmaz. */
+  createAutoNotice(key: string, input: NoticeInput): Promise<void>;
   uploadPhoto(photo: Photo, folder?: string): Promise<string>;
   listReports(): Promise<Report[]>;
   getReport(id: string): Promise<Report | null>;
@@ -137,6 +139,10 @@ const supaApi: Api = {
     const { error } = id
       ? await supabase.from('notices').update(input).eq('id', id)
       : await supabase.from('notices').insert(input);
+    fail(error);
+  },
+  async createAutoNotice(key, input) {
+    const { error } = await supabase.from('notices').upsert({ ...input, auto_key: key }, { onConflict: 'auto_key', ignoreDuplicates: true });
     fail(error);
   },
   async completeNotice(id) {
@@ -399,6 +405,11 @@ const demoApi: Api = {
     const old = demo.notices.find((x) => x.id === id);
     if (old) Object.assign(old, input);
     else demo.notices.unshift({ ...input, id: uid(), created_by: demo.me!, created_at: now(), completed_at: null });
+    emit();
+  },
+  async createAutoNotice(key, input) {
+    if (demo.notices.some((n) => n.auto_key === key)) return;
+    demo.notices.unshift({ ...input, auto_key: key, id: uid(), created_by: demo.me!, created_at: now(), completed_at: null });
     emit();
   },
   async completeNotice(id) {

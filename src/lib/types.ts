@@ -20,6 +20,8 @@ export type Notice = {
   photo_url: string | null;
   created_by: string;
   author_name?: string;
+  /** Uygulamanın kendiliğinden oluşturduğu bildirilerde dolu (ör. hava uyarısı). */
+  auto_key?: string | null;
   created_at: string;
   completed_at: string | null;
 };

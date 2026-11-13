@@ -11,6 +11,7 @@ import { NoticeCard } from '../../lib/NoticeCard';
 import { C } from '../../lib/theme';
 import { Notice, Profile } from '../../lib/types';
 import { useLive } from '../../lib/useLive';
+import { WeatherChip } from '../../lib/WeatherChip';
 import { Badge, Btn, Card, confirm, ErrorText, s } from '../../lib/ui';
 
 type Area = 'operasyon' | 'teknik';
@@ -29,7 +30,8 @@ export default function AnaEkran() {
   return (
     <SafeAreaView style={s.screen} edges={['top']}>
       <ScrollView contentContainerStyle={[s.content, { paddingBottom: 120 }]}>
-        <View style={{ alignItems: 'flex-end' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <WeatherChip />
           <MenuButton />
         </View>
         <Text style={{ color: C.text, fontSize: 34, fontWeight: '900', textAlign: 'center' }}>BHS</Text>

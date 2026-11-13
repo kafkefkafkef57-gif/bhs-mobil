@@ -27,7 +27,7 @@ export function NoticeCard({ notice, onEdit, onComplete }: Props) {
       <View>
         <Text style={s.muted}>
           Yayınlandı: <Text style={{ color: C.text }}>{formatDate(notice.created_at)}</Text>
-          {notice.author_name ? ` · ${notice.author_name}` : ''}
+          {notice.auto_key ? ' · Otomatik uyarı' : notice.author_name ? ` · ${notice.author_name}` : ''}
         </Text>
         {notice.completed_at && (
           <Text style={s.muted}>
