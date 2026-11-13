@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { KeyboardPad } from '../../lib/KeyboardPad';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
 import { isDemo } from '../../lib/supabase';
@@ -28,7 +29,7 @@ export default function Giris() {
 
   return (
     <SafeAreaView style={s.screen}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardPad style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[s.content, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled">
           <View style={{ alignItems: 'center', gap: 6, marginBottom: 12 }}>
             <Text style={{ color: C.text, fontSize: 44, fontWeight: '900', letterSpacing: 1 }}>BHS</Text>
@@ -50,7 +51,7 @@ export default function Giris() {
             </Text>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardPad>
     </SafeAreaView>
   );
 }

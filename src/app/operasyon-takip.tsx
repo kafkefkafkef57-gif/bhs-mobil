@@ -1,6 +1,7 @@
 import { Check, Plus, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardPad } from '../lib/KeyboardPad';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../lib/api';
 import { DateField } from '../lib/DateField';
@@ -109,7 +110,7 @@ function NewTask({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <KeyboardAvoidingView style={st.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardPad style={st.backdrop}>
       <SafeAreaView edges={['bottom']} style={st.sheet}>
         <View style={st.handle} />
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
@@ -140,7 +141,7 @@ function NewTask({ onClose }: { onClose: () => void }) {
           <Btn label="Kaydet" variant="primary" onPress={submit} loading={busy} />
         </ScrollView>
       </SafeAreaView>
-    </KeyboardAvoidingView>
+    </KeyboardPad>
   );
 }
 

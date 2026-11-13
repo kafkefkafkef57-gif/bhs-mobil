@@ -1,7 +1,8 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Save } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardPad } from '../../lib/KeyboardPad';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { DateField } from '../../lib/DateField';
@@ -58,7 +59,7 @@ export default function TutanakDuzenle() {
   };
 
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardPad style={s.screen}>
       <Stack.Screen options={{ title: id ? 'Tutanağı Düzenle' : 'Yeni Tutanak' }} />
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         {!id && <Text style={s.muted}>Tutanak numarası kaydedince otomatik verilir.</Text>}
@@ -89,6 +90,6 @@ export default function TutanakDuzenle() {
         <ErrorText>{error}</ErrorText>
         <Btn label={id ? 'Değişiklikleri Kaydet' : 'Tutanağı Kaydet'} icon={Save} variant="primary" onPress={submit} loading={busy} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardPad>
   );
 }

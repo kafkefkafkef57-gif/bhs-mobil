@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
+import { ScrollView, Text } from 'react-native';
+import { KeyboardPad } from '../../lib/KeyboardPad';
 import { api } from '../../lib/api';
 import { Btn, ErrorText, Field, s } from '../../lib/ui';
 
@@ -28,7 +29,7 @@ export default function Kayit() {
   };
 
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardPad style={s.screen}>
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Text style={s.muted}>Kaydınız yönetici tarafından onaylandıktan sonra uygulamaya giriş yapabilirsiniz.</Text>
         <Field label="Ad" value={f.first} onChangeText={set('first')} autoComplete="given-name" />
@@ -41,6 +42,6 @@ export default function Kayit() {
         {sent && <Text style={s.muted}>Kaydınız alındı. E-postanıza doğrulama bağlantısı geldiyse onaylayıp giriş yapın.</Text>}
         <Btn label="Kayıt Oluştur" variant="primary" onPress={submit} loading={busy} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardPad>
   );
 }

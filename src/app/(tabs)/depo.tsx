@@ -1,6 +1,7 @@
 import { Package, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardPad } from '../../lib/KeyboardPad';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
 import { PageHeader } from '../../lib/MenuButton';
@@ -134,7 +135,7 @@ function ItemForm({ item, onClose }: { item: InventoryItem | null; onClose: () =
     });
 
   return (
-    <KeyboardAvoidingView style={st.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardPad style={st.backdrop}>
       <SafeAreaView edges={['bottom']} style={st.sheet}>
         <View style={st.handle} />
         <View style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -170,7 +171,7 @@ function ItemForm({ item, onClose }: { item: InventoryItem | null; onClose: () =
           <Btn label="Vazgeç" onPress={onClose} />
         </ScrollView>
       </SafeAreaView>
-    </KeyboardAvoidingView>
+    </KeyboardPad>
   );
 }
 

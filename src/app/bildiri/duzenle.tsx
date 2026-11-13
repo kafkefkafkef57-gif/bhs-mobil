@@ -1,7 +1,8 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Send } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardPad } from '../../lib/KeyboardPad';
 import { api } from '../../lib/api';
 import { PhotoField, PhotoItem, uploadAll } from '../../lib/PhotoField';
 import { C } from '../../lib/theme';
@@ -47,7 +48,7 @@ export default function BildiriDuzenle() {
   };
 
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardPad style={s.screen}>
       <Stack.Screen options={{ title: id ? 'Bildiriyi Düzenle' : 'Yeni Bildiri' }} />
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Field label="Başlık" value={title} onChangeText={setTitle} maxLength={80} />
@@ -88,6 +89,6 @@ export default function BildiriDuzenle() {
         <ErrorText>{error}</ErrorText>
         <Btn label={id ? 'Değişiklikleri Kaydet' : 'Bildiriyi Yayınla'} icon={Send} variant="primary" onPress={submit} loading={busy} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardPad>
   );
 }

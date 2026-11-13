@@ -1,6 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardPad } from './KeyboardPad';
 import { formatDateLong, formatDay, monthName, toDay } from './format';
 import { C } from './theme';
 import { Btn, s } from './ui';
@@ -50,7 +51,7 @@ export function DateField({ label, value, onChange, withTime }: Props) {
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={st.backdrop}>
+        <KeyboardPad style={st.backdrop}>
           <View style={st.box}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Pressable onPress={() => move(-1)} accessibilityLabel="Önceki ay" style={st.nav}>
@@ -94,7 +95,7 @@ export function DateField({ label, value, onChange, withTime }: Props) {
               <Btn label="Tamam" variant="primary" onPress={done} style={{ flex: 1 }} />
             </View>
           </View>
-        </View>
+        </KeyboardPad>
       </Modal>
     </View>
   );

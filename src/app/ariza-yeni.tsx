@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Send } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardPad } from '../lib/KeyboardPad';
 import { api } from '../lib/api';
 import { PhotoField, PhotoItem, uploadAll } from '../lib/PhotoField';
 import { loadShiftPrefs, saveShiftPrefs } from '../lib/shiftReport';
@@ -47,7 +48,7 @@ export default function ArizaYeni() {
   };
 
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardPad style={s.screen}>
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Card style={{ gap: 2 }}>
           <Text style={s.muted}>{LINE_NAME[p.line]}</Text>
@@ -79,6 +80,6 @@ export default function ArizaYeni() {
         <ErrorText>{error}</ErrorText>
         <Btn label="Arızayı Bildir" icon={Send} variant="primary" onPress={submit} loading={busy} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardPad>
   );
 }

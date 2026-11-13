@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Send } from 'lucide-react-native';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { KeyboardPad } from '../lib/KeyboardPad';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { DateField } from '../lib/DateField';
@@ -50,7 +51,7 @@ export default function VardiyaPaylasim() {
   };
 
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardPad style={s.screen}>
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Text style={s.muted}>Paylaşan: {profile?.full_name}</Text>
         <View style={{ gap: 6 }}>
@@ -72,6 +73,6 @@ export default function VardiyaPaylasim() {
         <ErrorText>{error}</ErrorText>
         <Btn label="Paylaş" icon={Send} variant="primary" onPress={submit} loading={busy} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardPad>
   );
 }

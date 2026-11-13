@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { zoneTone } from '../../lib/faults';
+import { KeyboardPad } from '../../lib/KeyboardPad';
 import { LineSchema } from '../../lib/LineSchema';
 import { formatDate, weekStart } from '../../lib/format';
 import { C } from '../../lib/theme';
@@ -96,7 +97,7 @@ export default function ArizaHat() {
       <Btn label="Bölge ekle" icon={Plus} onPress={() => setAdding(true)} />
 
       <Modal visible={adding} transparent animationType="fade" onRequestClose={() => setAdding(false)}>
-        <View style={st.backdrop}>
+        <KeyboardPad style={st.backdrop}>
           <View style={st.box}>
             <Text style={s.h2}>{LINE_NAME[line]} · Yeni bölge</Text>
             <Field label="Bölge adı" value={name} onChangeText={setName} placeholder={line === 'dogu' ? 'Örn. Doğu 4 Vertisorter' : 'Örn. Batı 4 Vertisorter'} autoFocus />
@@ -106,7 +107,7 @@ export default function ArizaHat() {
               <Btn label="Ekle" variant="primary" style={{ flex: 1 }} onPress={add} />
             </View>
           </View>
-        </View>
+        </KeyboardPad>
       </Modal>
     </ScrollView>
   );
