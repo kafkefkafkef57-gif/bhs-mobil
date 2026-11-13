@@ -29,7 +29,23 @@ export type Notice = {
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
 export type SignUpInput = { full_name: string; phone: string; email: string; password: string };
-export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
+export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'inventory_items' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
+
+/** Depodaki malzeme / yedek parça. */
+export type InventoryItem = {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  shelf: string;
+  quantity: number;
+  unit: string;
+  /** Stok bu seviyeye ya da altına düşünce "kritik stok" sayılır. */
+  critical_level: number;
+  updated_at: string;
+};
+export type InventoryInput = Omit<InventoryItem, 'id' | 'updated_at'>;
+export const isCritical = (i: Pick<InventoryItem, 'quantity' | 'critical_level'>) => i.quantity <= i.critical_level;
 
 export type Line = 'dogu' | 'bati';
 export const LINE_NAME: Record<Line, string> = { dogu: 'Doğu Hattı', bati: 'Batı Hattı' };

@@ -282,6 +282,24 @@ drop policy if exists shift_reports_all on public.shift_reports;
 create policy shift_reports_all on public.shift_reports for all to authenticated
   using (public.is_approved()) with check (public.is_approved());
 
+-- ---------- Depo envanteri ----------
+create table if not exists public.inventory_items (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  name text not null,
+  category text not null default '',
+  shelf text not null default '',
+  quantity numeric not null default 0 check (quantity >= 0),
+  unit text not null default 'Adet',
+  critical_level numeric not null default 0 check (critical_level >= 0), -- stok bu seviyeye ya da altına inince kritik
+  created_by uuid default auth.uid() references public.profiles (id),
+  updated_at timestamptz not null default now()
+);
+alter table public.inventory_items enable row level security;
+drop policy if exists inventory_items_all on public.inventory_items;
+create policy inventory_items_all on public.inventory_items for all to authenticated
+  using (public.is_approved()) with check (public.is_approved());
+
 -- ---------- Fotoğraf deposu ----------
 insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
   on conflict (id) do nothing;
@@ -293,7 +311,7 @@ create policy photos_insert on storage.objects for insert to authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles', 'notices', 'faults', 'fault_zones', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
+  foreach t in array array['profiles', 'notices', 'faults', 'fault_zones', 'inventory_items', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;

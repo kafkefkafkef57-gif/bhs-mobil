@@ -1,5 +1,5 @@
 import { isDemo, supabase } from './supabase';
-import { Fault, FaultInput, FaultZone, Line, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { Fault, FaultInput, FaultZone, InventoryInput, InventoryItem, Line, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
 import { addDays, toDay } from './format';
 import { PlanRow } from './planImport';
 
@@ -37,6 +37,9 @@ export interface Api {
   listShifts(from: string, to: string, staffId?: string): Promise<StaffShift[]>;
   listAssignments(day: string): Promise<StaffAssignment[]>;
   setAssignment(staffId: string, day: string, location: Location | null): Promise<void>;
+  listInventory(): Promise<InventoryItem[]>;
+  saveInventoryItem(input: InventoryInput, id?: string): Promise<void>;
+  deleteInventoryItem(id: string): Promise<void>;
   /** team verilmezse tüm ekipler. */
   listShiftEntries(day: string, shift: Shift, team?: ShiftEntry['team']): Promise<ShiftEntry[]>;
   saveShiftEntry(input: ShiftEntryInput): Promise<void>;
@@ -245,6 +248,21 @@ const supaApi: Api = {
       : await supabase.from('staff_assignments').delete().eq('staff_id', staffId).eq('day', day);
     fail(error);
   },
+  async listInventory() {
+    const { data, error } = await supabase.from('inventory_items').select('*').order('name').limit(5000);
+    fail(error);
+    return (data ?? []).map((r) => ({ ...r, quantity: Number(r.quantity), critical_level: Number(r.critical_level) })) as InventoryItem[];
+  },
+  async saveInventoryItem(input, id) {
+    const row = { ...input, updated_at: new Date().toISOString() };
+    const { error } = id ? await supabase.from('inventory_items').update(row).eq('id', id) : await supabase.from('inventory_items').insert(row);
+    if (error?.code === '23505') throw new Error('Bu malzeme kodu zaten kayıtlı.');
+    fail(error);
+  },
+  async deleteInventoryItem(id) {
+    const { error } = await supabase.from('inventory_items').delete().eq('id', id);
+    fail(error);
+  },
   async listShiftEntries(day, shift, team) {
     let q = supabase.from('shift_entries').select('*, author:profiles!shift_entries_created_by_fkey(full_name)').eq('day', day).eq('shift', shift);
     if (team) q = q.eq('team', team);
@@ -346,6 +364,11 @@ let demoShifts: StaffShift[] = (() => {
   return demoStaff.flatMap((st, i) => Array.from({ length: 33 }, (_, d) => ({ staff_id: st.id, day: addDays(start, d), value: i === 3 && d === 9 ? 'Yİ' : cycle[(d + i) % 4] })));
 })();
 const demoAssignments: StaffAssignment[] = [];
+let demoInventory: InventoryItem[] = [
+  { id: 'i1', code: 'SNS-014', name: 'Fotosel sensör', category: 'Sensör', shelf: 'A-03-2', quantity: 12, unit: 'Adet', critical_level: 5, updated_at: now() },
+  { id: 'i2', code: 'MTR-220', name: 'Redüktörlü motor 0,75 kW', category: 'Motor', shelf: 'B-01-1', quantity: 2, unit: 'Adet', critical_level: 2, updated_at: now() },
+  { id: 'i3', code: 'BNT-600', name: 'Konveyör bandı 600 mm', category: 'Bant', shelf: 'C-02-4', quantity: 40, unit: 'Metre', critical_level: 15, updated_at: now() },
+];
 const demoEntries: ShiftEntry[] = [
   { id: 'e1', day: toDay(new Date()), shift: 'A', team: 'Operasyon', kind: 'bildirim', title: 'Hat 3 yoğunluğu', body: 'Sabah 09:00-11:00 arası hat 3 yoğun çalıştı, ek personel yönlendirildi.', photo_url: null, created_by: 'admin', created_at: now() },
 ];
@@ -488,6 +511,18 @@ const demoApi: Api = {
     const i = demoAssignments.findIndex((a) => a.staff_id === staffId && a.day === day);
     if (i >= 0) demoAssignments.splice(i, 1);
     if (location) demoAssignments.push({ staff_id: staffId, day, location });
+    emit();
+  },
+  async listInventory() {
+    return demoInventory.map((i) => ({ ...i })).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+  },
+  async saveInventoryItem(input, id) {
+    if (demoInventory.some((i) => i.code === input.code && i.id !== id)) throw new Error('Bu malzeme kodu zaten kayıtlı.');
+    demoInventory = id ? demoInventory.map((i) => (i.id === id ? { ...i, ...input, updated_at: now() } : i)) : [...demoInventory, { ...input, id: uid(), updated_at: now() }];
+    emit();
+  },
+  async deleteInventoryItem(id) {
+    demoInventory = demoInventory.filter((i) => i.id !== id);
     emit();
   },
   async listShiftEntries(day, shift, team) {
