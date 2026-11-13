@@ -107,11 +107,6 @@ export default function AnaEkran() {
           })}
         </View>
         <Text style={s.muted}>{area === 'operasyon' ? 'Operasyon ekranları' : 'Teknik ekranları'}</Text>
-        {modules.length === 0 && (
-          <Card>
-            <Text style={s.muted}>Teknik ekranları operasyon bölümü tamamlandıktan sonra eklenecek.</Text>
-          </Card>
-        )}
         {modules.map((m) => (
           <ModuleCard key={m.slug} m={m} />
         ))}
@@ -122,7 +117,7 @@ export default function AnaEkran() {
 
 function ModuleCard({ m }: { m: Module }) {
   const Icon = m.icon;
-  const badge = m.badge === 'Veriler' ? { fg: C.violet, bg: C.violetBg } : { fg: C.amber, bg: C.amberBg };
+  const badge = m.badge === 'Veriler' ? { fg: C.violet, bg: C.violetBg } : m.badge === 'Teknik' ? { fg: '#5eead4', bg: '#1c3f3c' } : { fg: C.amber, bg: C.amberBg };
   return (
     <Link href={m.href} asChild>
       <Pressable accessibilityRole="button">
