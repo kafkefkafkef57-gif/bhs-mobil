@@ -92,9 +92,10 @@ export function reportHtml(r: ShiftReport): string {
   </body></html>`;
 }
 
-/** Raporu PDF'e çevirip paylaşım penceresini açar (web önizlemesinde yazdırma penceresi). */
-export async function shareReportPdf(r: ShiftReport) {
-  const html = reportHtml(r);
+export const shareReportPdf = (r: ShiftReport) => shareHtmlAsPdf(reportHtml(r), `Vardiya raporu ${reportTitle(r)}`);
+
+/** Verilen HTML'i PDF'e çevirip paylaşım penceresini açar (web önizlemesinde yazdırma penceresi). */
+export async function shareHtmlAsPdf(html: string, title: string) {
   if (Platform.OS === 'web') {
     // Web önizlemesi: raporu yeni pencerede açıp tarayıcının yazdır / PDF kaydet penceresini göster.
     const w = window.open('', '_blank');
@@ -105,5 +106,5 @@ export async function shareReportPdf(r: ShiftReport) {
     return;
   }
   const { uri } = await Print.printToFileAsync({ html });
-  await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: `Vardiya raporu ${reportTitle(r)}` });
+  await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: title });
 }

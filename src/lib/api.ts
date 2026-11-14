@@ -1,5 +1,5 @@
 import { isDemo, supabase } from './supabase';
-import { compareCodes, DailyWork, DailyWorkInput, Department, Equipment, Fault, FaultInput, FaultZone, InventoryInput, InventoryItem, Line, lineOf, MaintenanceInput, MaintenanceRecord, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { compareCodes, CustomsFlight, CustomsFlightInput, DailyWork, DailyWorkInput, Department, Equipment, Fault, FaultInput, FaultZone, InventoryInput, InventoryItem, Line, lineOf, MaintenanceInput, MaintenanceRecord, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
 import { addDays, toDay } from './format';
 import { PlanRow } from './planImport';
 import { EQUIPMENT_CODES } from './equipmentSeed';
@@ -14,6 +14,8 @@ export interface Api {
   onAuthChange(cb: () => void): () => void;
   listUsers(): Promise<Profile[]>;
   setUserStatus(id: string, status: Status): Promise<void>;
+  /** Yöneticilik verir ya da alır; yalnızca uygulama sahibi (ilk kayıt olan) yapabilir. */
+  setUserRole(id: string, role: Profile['role']): Promise<void>;
   listNotices(archived: boolean): Promise<Notice[]>;
   getNotice(id: string): Promise<Notice | null>;
   saveNotice(input: NoticeInput, id?: string): Promise<void>;
@@ -62,6 +64,12 @@ export interface Api {
   listDailyWorks(from: Date, to: Date): Promise<DailyWork[]>;
   saveDailyWork(input: DailyWorkInput, id?: string): Promise<void>;
   deleteDailyWork(id: string): Promise<void>;
+  /** fromDay – toDay (dahil, YYYY-MM-DD) aralığındaki gümrük uçuşları, yeniden eskiye. */
+  listCustomsFlights(fromDay: string, toDay: string): Promise<CustomsFlight[]>;
+  saveCustomsFlight(input: CustomsFlightInput, id?: string): Promise<void>;
+  deleteCustomsFlight(id: string): Promise<void>;
+  /** fromDay – toDay (dahil) aralığındaki tüm vardiya paylaşımları (aylık rapor için). */
+  listShiftEntriesBetween(fromDay: string, toDay: string): Promise<ShiftEntry[]>;
   /** team verilmezse tüm ekipler. */
   listShiftEntries(day: string, shift: Shift, team?: ShiftEntry['team']): Promise<ShiftEntry[]>;
   saveShiftEntry(input: ShiftEntryInput): Promise<void>;
@@ -375,6 +383,35 @@ const supaApi: Api = {
     const { error } = await supabase.from('daily_works').delete().eq('id', id);
     fail(error);
   },
+  async setUserRole(id, role) {
+    const { error } = await supabase.rpc('set_user_role', { p_user: id, p_role: role });
+    fail(error);
+  },
+  async listCustomsFlights(fromDay, toDay) {
+    const { data, error } = await supabase
+      .from('customs_flights')
+      .select('*, author:profiles!customs_flights_created_by_fkey(full_name)')
+      .gte('day', fromDay)
+      .lte('day', toDay)
+      .order('day', { ascending: false })
+      .order('created_at', { ascending: false });
+    fail(error);
+    return (data ?? []).map(withAuthorName) as CustomsFlight[];
+  },
+  async saveCustomsFlight(input, id) {
+    const { shift: _s, team: _t, ...editable } = input; // düzeltmede vardiya ilk girildiği gibi kalır
+    const { error } = id ? await supabase.from('customs_flights').update(editable).eq('id', id) : await supabase.from('customs_flights').insert(input);
+    fail(error);
+  },
+  async deleteCustomsFlight(id) {
+    const { error } = await supabase.from('customs_flights').delete().eq('id', id);
+    fail(error);
+  },
+  async listShiftEntriesBetween(fromDay, toDay) {
+    const { data, error } = await supabase.from('shift_entries').select('*, author:profiles!shift_entries_created_by_fkey(full_name)').gte('day', fromDay).lte('day', toDay).order('created_at');
+    fail(error);
+    return (data ?? []).map(withAuthorName) as ShiftEntry[];
+  },
   async listShiftEntries(day, shift, team) {
     let q = supabase.from('shift_entries').select('*, author:profiles!shift_entries_created_by_fkey(full_name)').eq('day', day).eq('shift', shift);
     if (team) q = q.eq('team', team);
@@ -478,6 +515,9 @@ let demoShifts: StaffShift[] = (() => {
 const demoAssignments: StaffAssignment[] = [];
 let demoEquipment: Equipment[] = EQUIPMENT_CODES.map((code, i) => ({ id: `q${i}`, code, line: lineOf(code), kind: 'Konveyör / Motor', location: '' }));
 const demoMaintenance: MaintenanceRecord[] = [];
+let demoCustoms: CustomsFlight[] = [
+  { id: 'c1', day: toDay(new Date()), arrival: 3, flight: 'PC 1234', origin: 'Dubai', note: '', shift: 'A', team: 'Operasyon', created_by: 'admin', created_at: now() },
+];
 let demoWorks: DailyWork[] = [
   { id: 'w1', category: 'Köprü bakımı', place: 'Köprü 205', work: 'Körük ve tekerlek kontrolü yapıldı, yağlama tamamlandı.', note: '', photo_url: null, shift: 'A', team: 'Teknik', created_by: 'admin', created_at: now() },
 ];
@@ -717,6 +757,30 @@ const demoApi: Api = {
   async deleteDailyWork(id) {
     demoWorks = demoWorks.filter((w) => w.id !== id);
     emit();
+  },
+  async setUserRole(id, role) {
+    if (demo.me !== 'admin') throw new Error('Yöneticilik yetkisini yalnızca uygulama sahibi değiştirebilir.');
+    const u = demo.users.find((x) => x.id === id);
+    if (u) u.role = role;
+    emit();
+  },
+  async listCustomsFlights(fromDay, toDay) {
+    return demoCustoms
+      .filter((c) => c.day >= fromDay && c.day <= toDay)
+      .sort((a, b) => b.day.localeCompare(a.day) || b.created_at.localeCompare(a.created_at))
+      .map((c) => ({ ...c, author_name: demoName(c.created_by) }));
+  },
+  async saveCustomsFlight(input, id) {
+    const { shift: _s, team: _t, ...editable } = input;
+    demoCustoms = id ? demoCustoms.map((c) => (c.id === id ? { ...c, ...editable } : c)) : [...demoCustoms, { ...input, id: uid(), created_by: demo.me!, created_at: now() }];
+    emit();
+  },
+  async deleteCustomsFlight(id) {
+    demoCustoms = demoCustoms.filter((c) => c.id !== id);
+    emit();
+  },
+  async listShiftEntriesBetween(fromDay, toDay) {
+    return demoEntries.filter((e) => e.day >= fromDay && e.day <= toDay).map((e) => ({ ...e, author_name: demoName(e.created_by) }));
   },
   async listShiftEntries(day, shift, team) {
     return demoEntries.filter((e) => e.day === day && e.shift === shift && (!team || e.team === team)).map((e) => ({ ...e, author_name: demoName(e.created_by) }));

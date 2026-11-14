@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { KeyboardPad } from '../../lib/KeyboardPad';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
@@ -32,6 +32,7 @@ export default function Giris() {
       <KeyboardPad style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[s.content, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled">
           <View style={{ alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <Image source={require('../../../assets/logo.png')} style={{ width: 120, height: 120, borderRadius: 26 }} accessibilityLabel="BHS Mobil logosu" />
             <Text style={{ color: C.text, fontSize: 44, fontWeight: '900', letterSpacing: 1 }}>BHS</Text>
             <Text style={s.muted}>Hesabınıza giriş yapın</Text>
           </View>

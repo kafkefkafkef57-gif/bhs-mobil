@@ -32,7 +32,7 @@ export type Notice = {
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
 export type SignUpInput = { full_name: string; phone: string; email: string; password: string; shift: Shift; team: Department };
-export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'inventory_items' | 'equipment' | 'maintenance_records' | 'daily_works' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
+export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'inventory_items' | 'equipment' | 'maintenance_records' | 'daily_works' | 'customs_flights' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
 
 /** Depodaki malzeme / yedek parça. */
 export type InventoryItem = {
@@ -97,6 +97,23 @@ export const compareCodes = (a: string, b: string) => {
   for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? -1) !== (y[i] ?? -1)) return (x[i] ?? -1) - (y[i] ?? -1);
   return 0;
 };
+
+export const CUSTOMS_ARRIVALS = [1, 3, 4] as const;
+/** Gümrük talebiyle bir arrival bandına atanan uçuş. */
+export type CustomsFlight = {
+  id: string;
+  day: string; // YYYY-MM-DD
+  arrival: number;
+  flight: string;
+  origin: string;
+  note: string;
+  shift: Shift | null;
+  team: Department | null;
+  created_by: string;
+  author_name?: string;
+  created_at: string;
+};
+export type CustomsFlightInput = Pick<CustomsFlight, 'day' | 'arrival' | 'flight' | 'origin' | 'note' | 'shift' | 'team'>;
 
 export type Line = 'dogu' | 'bati';
 export const LINE_NAME: Record<Line, string> = { dogu: 'Doğu Hattı', bati: 'Batı Hattı' };

@@ -42,6 +42,7 @@ function Nav() {
         <Stack.Screen name="modul/[slug]" options={{ title: '' }} />
         <Stack.Screen name="operasyon-takip" options={{ title: '' }} />
         <Stack.Screen name="ucus" options={{ title: '' }} />
+        <Stack.Screen name="veriler" options={{ title: 'Veriler' }} />
         <Stack.Screen name="ekipman/[id]" options={{ title: 'Ekipman' }} />
         <Stack.Screen name="ariza-hat/[line]" options={{ title: 'Arıza Bildirimi' }} />
         <Stack.Screen name="ariza-yeni" options={{ title: 'Yeni Arıza' }} />
@@ -56,6 +57,7 @@ function Nav() {
         <Stack.Protected guard={profile?.role === 'admin'}>
           <Stack.Screen name="yonetici" options={{ title: 'Yönetici Paneli' }} />
           <Stack.Screen name="plan-yukle" options={{ title: 'Çalışma Programı' }} />
+          <Stack.Screen name="aylik-rapor" options={{ title: 'Aylık Rapor' }} />
         </Stack.Protected>
       </Stack.Protected>
     </Stack>

@@ -18,6 +18,15 @@ export function WeatherChip() {
   const [w, setW] = useState<Weather | null>(null);
 
   const load = useCallback(async () => {
+    // Ayın son günü: aylık raporun hazır olduğunu panoya bir kez bildir.
+    const today = new Date();
+    if (new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() === today.getDate()) {
+      const key = `aylik-rapor-${toDay(today).slice(0, 7)}`;
+      if (!sent.has(key)) {
+        sent.add(key);
+        api.createAutoNotice(key, { title: 'Aylık rapor hazır', body: 'Bu ayın tüm kayıtlarını içeren toplu PDF, Yönetici Paneli > Aylık Rapor bölümünden alınabilir.', importance: 'normal', photo_url: null }).catch(() => sent.delete(key));
+      }
+    }
     try {
       const next = await fetchWeather();
       setW(next);

@@ -61,6 +61,34 @@ drop policy if exists profiles_admin_update on public.profiles;
 create policy profiles_admin_update on public.profiles for update to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
+-- Uygulamanın sahibi: ilk kayıt olan kişi. Yöneticilik vermeyi ve almayı yalnızca o yapabilir.
+create or replace function public.is_owner() returns boolean
+language sql stable security definer set search_path = public as $$
+  select auth.uid() = (select id from public.profiles order by created_at, id limit 1);
+$$;
+
+create or replace function public.set_user_role(p_user uuid, p_role text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_owner() then raise exception 'Yöneticilik yetkisini yalnızca uygulama sahibi değiştirebilir.'; end if;
+  if p_user = auth.uid() then raise exception 'Kendi yetkinizi değiştiremezsiniz.'; end if;
+  if p_role not in ('admin', 'user') then raise exception 'Geçersiz rol.'; end if;
+  update public.profiles set role = p_role where id = p_user;
+end $$;
+
+-- Rol, doğrudan tablo güncellemesiyle de yalnızca sahibi tarafından değiştirilebilir.
+create or replace function public.protect_profile_role() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.role is distinct from old.role and auth.uid() is not null and not public.is_owner() then
+    raise exception 'Yöneticilik yetkisini yalnızca uygulama sahibi değiştirebilir.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists profiles_protect_role on public.profiles;
+create trigger profiles_protect_role before update on public.profiles
+  for each row execute function public.protect_profile_role();
+
 -- Kullanıcı yalnızca kendi vardiya ve ekibini değiştirebilir (rol ve onay durumuna dokunamaz).
 create or replace function public.set_my_shift(p_shift text, p_team text) returns void
 language plpgsql security definer set search_path = public as $$
@@ -519,6 +547,25 @@ drop policy if exists daily_works_all on public.daily_works;
 create policy daily_works_all on public.daily_works for all to authenticated
   using (public.is_approved()) with check (public.is_approved());
 
+-- ---------- Gümrük: gümrük talebiyle Arrival 1, 3 ve 4'e atanan uçuşlar ----------
+create table if not exists public.customs_flights (
+  id uuid primary key default gen_random_uuid(),
+  day date not null default current_date,
+  arrival int not null check (arrival in (1, 3, 4)),
+  flight text not null,
+  origin text not null default '',
+  note text not null default '',
+  shift text check (shift in ('A', 'B', 'C', 'D')), -- kaydı giren (uçağı alan) vardiya
+  team text check (team in ('Operasyon', 'Teknik')),
+  created_by uuid not null default auth.uid() references public.profiles (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists customs_flights_day_idx on public.customs_flights (day);
+alter table public.customs_flights enable row level security;
+drop policy if exists customs_flights_all on public.customs_flights;
+create policy customs_flights_all on public.customs_flights for all to authenticated
+  using (public.is_approved()) with check (public.is_approved());
+
 -- ---------- Fotoğraf deposu ----------
 insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
   on conflict (id) do nothing;
@@ -530,7 +577,7 @@ create policy photos_insert on storage.objects for insert to authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles', 'notices', 'faults', 'fault_zones', 'inventory_items', 'equipment', 'maintenance_records', 'daily_works', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
+  foreach t in array array['profiles', 'notices', 'faults', 'fault_zones', 'inventory_items', 'equipment', 'maintenance_records', 'daily_works', 'customs_flights', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;

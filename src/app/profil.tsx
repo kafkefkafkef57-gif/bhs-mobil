@@ -4,6 +4,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { C } from '../lib/theme';
+import { Brand } from '../lib/Brand';
 import { ShiftTeamPicker } from '../lib/ShiftTeamPicker';
 import { Department, Shift } from '../lib/types';
 import { Badge, Btn, Card, ErrorText, s } from '../lib/ui';
@@ -46,6 +47,7 @@ export default function Profil() {
         <ErrorText>{error}</ErrorText>
       </Card>
       <Btn label="Çıkış Yap" icon={LogOut} variant="danger" onPress={() => api.signOut()} />
+      <Brand />
     </ScrollView>
   );
 }

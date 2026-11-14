@@ -20,7 +20,7 @@ export const OPERASYON: Module[] = [
   { slug: 'vardiya', title: '🕒 Vardiya Durumu', desc: 'Bugünkü aktif personeli ve vardiya notlarını açın.', icon: CalendarDays, color: '#fb7185', iconBg: '#4a2a30', badge: 'Operasyon', href: '/vardiya' },
   { slug: 'tutanak', title: '📝 Tutanaklar', desc: 'Olay tutanaklarını görüntüleyin veya yeni bildirim oluşturun.', icon: FileText, color: '#34d399', iconBg: '#1d4238', badge: 'Operasyon', href: '/tutanaklar' },
   { slug: 'operasyon-takip', title: '✅ Operasyon Takip', desc: 'Hat temizlikleri ve vardiya görevlerini ekleyin, işaretleyin.', icon: ClipboardCheck, color: '#22d3ee', iconBg: '#1c3f47', badge: 'Operasyon', href: '/operasyon-takip' },
-  { slug: 'veriler', title: 'Veriler', desc: 'Günlük şirket verileri ileride bu alana eklenecek.', icon: Database, color: C.violet, iconBg: C.violetBg, badge: 'Veriler', href: '/modul/veriler' },
+  { slug: 'veriler', title: 'Veriler', desc: 'Gümrük uçuşları ve günlük şirket verileri.', icon: Database, color: C.violet, iconBg: C.violetBg, badge: 'Veriler', href: '/veriler' },
 ];
 
 const TEAL = '#5eead4';
@@ -28,5 +28,5 @@ export const TEKNIK: Module[] = [
   { slug: 'teknik-bakim', title: '🧰 Teknik Bakım ve Envanter', desc: 'Ekipmanları arayın, bakım geçmişini ve yedek parça kullanımını yönetin.', icon: Wrench, color: '#e879f9', iconBg: '#43264a', badge: 'Teknik', href: '/teknik-bakim' },
   { slug: 'gunluk-bakim', title: '🛠️ Günlük Köprü ve Arıza Bakım', desc: 'Gün içinde yapılan köprü bakımı, bant ve arıza giderme işlerini kaydedin.', icon: Wrench, color: '#e879f9', iconBg: '#43264a', badge: 'Teknik', href: '/gunluk-bakim' },
   { slug: 'depo', title: '📦 Depo Envanteri', desc: 'Malzeme stoklarını ve kritik seviyeleri izleyin.', icon: Package, color: TEAL, iconBg: '#1c3f3c', badge: 'Teknik', href: '/depo' },
-  { slug: 'veriler-teknik', title: 'Veriler', desc: 'Günlük şirket verileri ileride bu alana eklenecek.', icon: Database, color: C.violet, iconBg: C.violetBg, badge: 'Veriler', href: '/modul/veriler' },
+  { slug: 'veriler-teknik', title: 'Veriler', desc: 'Gümrük uçuşları ve günlük şirket verileri.', icon: Database, color: C.violet, iconBg: C.violetBg, badge: 'Veriler', href: '/veriler' },
 ];
