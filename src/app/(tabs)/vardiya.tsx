@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { DateField } from '../../lib/DateField';
 import { EntryCard } from '../../lib/EntryCard';
 import { addDays, formatDateLong, fromDay, toDay } from '../../lib/format';
 import { PageHeader } from '../../lib/MenuButton';
-import { faultToEntry, KIND_ORDER, KINDS, loadShiftPrefs, reportTitle, saveShiftPrefs, shareReportPdf } from '../../lib/shiftReport';
+import { faultToEntry, KIND_ORDER, KINDS, maintenanceToEntry, reportTitle, shareReportPdf, workToEntry } from '../../lib/shiftReport';
 import { ShiftPicker } from '../../lib/ShiftPicker';
 import { C } from '../../lib/theme';
 import { Department, EntryKind, ReportTeam, Shift, ShiftEntry, ShiftReport } from '../../lib/types';
@@ -43,29 +44,30 @@ export default function Vardiya() {
 /** Seçilen gün, vardiya ve ekibin gün içindeki tüm paylaşımları. */
 function Akis({ onReport }: { onReport: () => void }) {
   const [date, setDate] = useState(() => new Date());
-  const [shift, setShift] = useState<Shift>('A');
-  const [team, setTeam] = useState<ReportTeam>('Operasyon');
+  // Kişinin kendi vardiyası ve ekibiyle açılır; başka vardiyalara da bakılabilir.
+  const { profile } = useAuth();
+  const [shift, setShift] = useState<Shift>(profile?.shift ?? 'A');
+  const [team, setTeam] = useState<ReportTeam>(profile?.team ?? 'Operasyon');
   const [kind, setKind] = useState<EntryKind | 'all'>('all');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const day = toDay(date);
 
-  // Son seçilen vardiya ve ekip hatırlanır.
-  useEffect(() => {
-    loadShiftPrefs().then((p) => p && (setShift(p.shift), setTeam(p.team)));
-  }, []);
-  useEffect(() => {
-    if (team !== 'Tümü') saveShiftPrefs({ shift, team });
-  }, [shift, team]);
-
-  // Paylaşımlar + o gün bu vardiya ve ekibin girdiği arızalar, saat sırasıyla.
+  // Paylaşımlar + o gün bu vardiya ve ekibin girdiği arızalar, teknik işler ve ekipman bakımları; saat sırasıyla.
   const entries = useLive(
     async () => {
-      const [list, faults] = await Promise.all([api.listShiftEntries(day, shift, team === 'Tümü' ? undefined : team), api.listFaults(fromDay(day), fromDay(addDays(day, 1)))]);
-      const mine = faults.filter((f) => f.shift === shift && (team === 'Tümü' || f.team === team)).map(faultToEntry);
-      return [...list, ...mine].sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const from = fromDay(day);
+      const to = fromDay(addDays(day, 1));
+      const [list, faults, works, maintenance] = await Promise.all([
+        api.listShiftEntries(day, shift, team === 'Tümü' ? undefined : team),
+        api.listFaults(from, to),
+        api.listDailyWorks(from, to),
+        api.listMaintenanceBetween(from, to),
+      ]);
+      const derived = [...faults.map(faultToEntry), ...works.map(workToEntry), ...maintenance.map(maintenanceToEntry)].filter((e): e is ShiftEntry => !!e && e.shift === shift && (team === 'Tümü' || e.team === team));
+      return [...list, ...derived].sort((a, b) => a.created_at.localeCompare(b.created_at));
     },
-    ['shift_entries', 'faults'],
+    ['shift_entries', 'faults', 'daily_works', 'maintenance_records'],
     [] as ShiftEntry[],
   );
   useEffect(() => {
@@ -105,7 +107,7 @@ function Akis({ onReport }: { onReport: () => void }) {
         label="Yeni vardiya paylaşımı"
         icon={Plus}
         variant="primary"
-        onPress={() => router.push({ pathname: '/vardiya-paylasim', params: { day, shift, team: team === 'Tümü' ? 'Operasyon' : team } })}
+        onPress={() => router.push({ pathname: '/vardiya-paylasim', params: { day } })}
       />
 
       <Text style={[s.h2, { marginTop: 4 }]}>

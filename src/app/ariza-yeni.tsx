@@ -1,36 +1,24 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Send } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { KeyboardPad } from '../lib/KeyboardPad';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { PhotoField, PhotoItem, uploadAll } from '../lib/PhotoField';
-import { loadShiftPrefs, saveShiftPrefs } from '../lib/shiftReport';
-import { ShiftPicker } from '../lib/ShiftPicker';
 import { C } from '../lib/theme';
-import { COMPANIES, Department, Line, LINE_NAME, Shift } from '../lib/types';
-import { Btn, Card, ErrorText, Field, s, Segmented } from '../lib/ui';
-
-const TEAMS: { value: Department; label: string }[] = [
-  { value: 'Operasyon', label: 'Operasyon' },
-  { value: 'Teknik', label: 'Teknik' },
-];
+import { COMPANIES, Line, LINE_NAME } from '../lib/types';
+import { Btn, Card, ErrorText, Field, s } from '../lib/ui';
 
 /** Seçilen bölge için arıza bildirimi. */
 export default function ArizaYeni() {
   const p = useLocalSearchParams<{ line: Line; zoneId: string; zoneName: string }>();
   const [company, setCompany] = useState('');
-  const [shift, setShift] = useState<Shift>('A');
-  const [team, setTeam] = useState<Department>('Operasyon');
+  const { profile } = useAuth();
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Vardiya ve ekip, en son seçilenle hazır gelir.
-  useEffect(() => {
-    loadShiftPrefs().then((x) => x && (setShift(x.shift), setTeam(x.team)));
-  }, []);
 
   const submit = async () => {
     if (!company) return setError('Arızaya sebep olan bagajın firmasını seçin.');
@@ -38,8 +26,7 @@ export default function ArizaYeni() {
     setError(null);
     try {
       const [photo_url = null] = await uploadAll(photos, 'ariza');
-      await api.saveFault({ line: p.line, zone_id: p.zoneId, zone_name: p.zoneName, company, description: description.trim(), photo_url, shift, team });
-      saveShiftPrefs({ shift, team });
+      await api.saveFault({ line: p.line, zone_id: p.zoneId, zone_name: p.zoneName, company, description: description.trim(), photo_url, shift: profile!.shift!, team: profile!.team! });
       router.dismissTo('/arizalar');
     } catch (e: any) {
       setError(e.message);
@@ -53,6 +40,9 @@ export default function ArizaYeni() {
         <Card style={{ gap: 2 }}>
           <Text style={s.muted}>{LINE_NAME[p.line]}</Text>
           <Text style={s.h2}>{p.zoneName}</Text>
+          <Text style={[s.muted, { fontSize: 13 }]}>
+            {profile?.shift} Vardiyası · {profile?.team} olarak kaydedilecek
+          </Text>
         </Card>
         <View style={{ gap: 6 }}>
           <Text style={s.label}>Arızaya sebep olan bagajın firması</Text>
@@ -66,14 +56,6 @@ export default function ArizaYeni() {
               );
             })}
           </View>
-        </View>
-        <View style={{ gap: 6 }}>
-          <Text style={s.label}>Vardiya</Text>
-          <ShiftPicker value={shift} onChange={setShift} />
-        </View>
-        <View style={{ gap: 6 }}>
-          <Text style={s.label}>Ekip</Text>
-          <Segmented options={TEAMS} value={team} onChange={setTeam} />
         </View>
         <Field label="Açıklama (isteğe bağlı)" value={description} onChangeText={setDescription} multiline />
         <PhotoField label="Görsel (isteğe bağlı)" value={photos} onChange={setPhotos} />

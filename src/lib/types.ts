@@ -9,6 +9,9 @@ export type Profile = {
   email: string;
   role: Role;
   status: Status;
+  /** Kişinin vardiyası ve ekibi; girdiği kayıtlar bunlarla işaretlenir. Eski hesaplarda boş olabilir. */
+  shift: Shift | null;
+  team: Department | null;
   created_at: string;
 };
 
@@ -28,8 +31,8 @@ export type Notice = {
 
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
-export type SignUpInput = { full_name: string; phone: string; email: string; password: string };
-export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'inventory_items' | 'equipment' | 'maintenance_records' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
+export type SignUpInput = { full_name: string; phone: string; email: string; password: string; shift: Shift; team: Department };
+export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'inventory_items' | 'equipment' | 'maintenance_records' | 'daily_works' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
 
 /** Depodaki malzeme / yedek parça. */
 export type InventoryItem = {
@@ -59,10 +62,32 @@ export type MaintenanceRecord = {
   note: string;
   /** Kullanılan yedek parçalar (depodan düşülür); parça kullanılmadıysa boş liste. */
   parts: MaintenancePart[];
+  shift?: Shift | null;
+  team?: Department | null;
+  /** Vardiya akışı için: ekipman numarası (yalnızca tarih aralığı sorgusunda dolu). */
+  equipment_code?: string;
+  created_by?: string;
   created_at: string;
 };
 /** id verilirse mevcut kayıt düzeltilir. */
-export type MaintenanceInput = Pick<MaintenanceRecord, 'equipment_id' | 'technician' | 'work' | 'note' | 'parts'> & { id?: string };
+export type MaintenanceInput = Pick<MaintenanceRecord, 'equipment_id' | 'technician' | 'work' | 'note' | 'parts'> & { id?: string; shift: Shift | null; team: Department | null };
+
+export const WORK_CATEGORIES = ['Köprü bakımı', 'Bant / konveyör', 'Arıza giderme', 'Sistem', 'Diğer'] as const;
+/** Teknisyenin gün içinde yaptığı iş (köprü bakımı, bant, arıza giderme ...). */
+export type DailyWork = {
+  id: string;
+  category: string;
+  place: string;
+  work: string;
+  note: string;
+  photo_url: string | null;
+  shift: Shift | null;
+  team: Department | null;
+  created_by: string;
+  author_name?: string;
+  created_at: string;
+};
+export type DailyWorkInput = Pick<DailyWork, 'category' | 'place' | 'work' | 'note' | 'photo_url' | 'shift' | 'team'>;
 /** "101.2.7" -> "101" */
 export const lineOf = (code: string) => code.split('.')[0];
 /** Ekipman numaralarını sayısal sıralar: 101.2.7 < 101.26.1 < 1001.2.1 */
@@ -95,8 +120,8 @@ export type Fault = {
 };
 export type FaultInput = Pick<Fault, 'line' | 'zone_id' | 'zone_name' | 'company' | 'description' | 'photo_url' | 'shift' | 'team'>;
 
-/** 'ariza' elle eklenmez; Arıza Bildirimi'nden girilen arızalar akışa bu türle düşer. */
-export type EntryKind = 'ariza' | 'bildirim' | 'not' | 'rutin' | 'devir';
+/** 'ariza' ve 'bakim' elle eklenmez; arıza bildirimleri ile teknik işler / bakım kayıtları akışa bu türlerle düşer. */
+export type EntryKind = 'ariza' | 'bakim' | 'bildirim' | 'not' | 'rutin' | 'devir';
 /** Bir vardiyanın gün içindeki paylaşımı (bildirim, not, rutin, devir notu). */
 export type ShiftEntry = {
   id: string;
@@ -111,7 +136,7 @@ export type ShiftEntry = {
   author_name?: string;
   created_at: string;
 };
-export type ShiftEntryInput = Pick<ShiftEntry, 'day' | 'shift' | 'team' | 'title' | 'body' | 'photo_url'> & { kind: Exclude<EntryKind, 'ariza'> };
+export type ShiftEntryInput = Pick<ShiftEntry, 'day' | 'shift' | 'team' | 'title' | 'body' | 'photo_url'> & { kind: Exclude<EntryKind, 'ariza' | 'bakim'> };
 export type ReportTeam = Department | 'Tümü';
 /** Oluşturulmuş vardiya raporu; içerik o andaki kayıtların kopyasıdır. */
 export type ShiftReport = {

@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { CalendarDays, ClipboardList, FileText, LayoutGrid, LucideIcon, MapPin, Package, TriangleAlert, Wrench } from 'lucide-react-native';
+import { CalendarDays, FileText, LayoutGrid, LucideIcon, MapPin, Package, TriangleAlert, Wrench } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Area, AreaProvider, useArea } from '../../lib/area';
@@ -12,8 +12,7 @@ const TABS: Record<string, { label: string; icon: LucideIcon; area?: Area }> = {
   vardiya: { label: '🕒 Vardiya', icon: CalendarDays, area: 'operasyon' },
   arizalar: { label: '🚨 Arızalar', icon: TriangleAlert, area: 'operasyon' },
   tutanaklar: { label: '📝 Tutanaklar', icon: FileText, area: 'operasyon' },
-  'is-emirleri': { label: '📋 İş Emirleri', icon: ClipboardList, area: 'teknik' },
-  'gunluk-bakim': { label: '🛠️ Günlük Bakım', icon: Wrench, area: 'teknik' },
+  'gunluk-bakim': { label: '🛠️ Köprü ve Arıza', icon: Wrench, area: 'teknik' },
   depo: { label: '📦 Depo', icon: Package, area: 'teknik' },
   'teknik-bakim': { label: '🧰 Teknik Bakım', icon: Wrench, area: 'teknik' },
 };
@@ -59,7 +58,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="vardiya" />
       <Tabs.Screen name="arizalar" />
       <Tabs.Screen name="tutanaklar" />
-      <Tabs.Screen name="is-emirleri" />
       <Tabs.Screen name="gunluk-bakim" />
       <Tabs.Screen name="depo" />
       <Tabs.Screen name="teknik-bakim" />

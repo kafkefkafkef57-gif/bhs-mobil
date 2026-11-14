@@ -1,5 +1,5 @@
 import { isDemo, supabase } from './supabase';
-import { compareCodes, Equipment, Fault, FaultInput, FaultZone, InventoryInput, InventoryItem, Line, lineOf, MaintenanceInput, MaintenanceRecord, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { compareCodes, DailyWork, DailyWorkInput, Department, Equipment, Fault, FaultInput, FaultZone, InventoryInput, InventoryItem, Line, lineOf, MaintenanceInput, MaintenanceRecord, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
 import { addDays, toDay } from './format';
 import { PlanRow } from './planImport';
 import { EQUIPMENT_CODES } from './equipmentSeed';
@@ -8,6 +8,8 @@ export interface Api {
   signIn(email: string, password: string): Promise<void>;
   signUp(input: SignUpInput): Promise<void>;
   signOut(): Promise<void>;
+  /** Giriş yapan kişinin vardiya ve ekibini kaydeder. */
+  setMyShift(shift: Shift, team: Department): Promise<void>;
   currentProfile(): Promise<Profile | null>;
   onAuthChange(cb: () => void): () => void;
   listUsers(): Promise<Profile[]>;
@@ -51,6 +53,12 @@ export interface Api {
   saveMaintenance(input: MaintenanceInput): Promise<void>;
   /** Bakım kaydını siler; kullanılan parçalar depoya geri eklenir. */
   deleteMaintenance(id: string): Promise<void>;
+  /** Tüm ekipmanların from (dahil) – to (hariç) aralığındaki bakım kayıtları (vardiya akışı için). */
+  listMaintenanceBetween(from: Date, to: Date): Promise<MaintenanceRecord[]>;
+  /** from (dahil) – to (hariç) aralığında girilen günlük teknik işler, yeniden eskiye. */
+  listDailyWorks(from: Date, to: Date): Promise<DailyWork[]>;
+  saveDailyWork(input: DailyWorkInput, id?: string): Promise<void>;
+  deleteDailyWork(id: string): Promise<void>;
   /** team verilmezse tüm ekipler. */
   listShiftEntries(day: string, shift: Shift, team?: ShiftEntry['team']): Promise<ShiftEntry[]>;
   saveShiftEntry(input: ShiftEntryInput): Promise<void>;
@@ -103,16 +111,20 @@ const supaApi: Api = {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     fail(error);
   },
-  async signUp({ full_name, phone, email, password }) {
+  async signUp({ full_name, phone, email, password, shift, team }) {
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: full_name.trim(), phone: phone.trim() } },
+      options: { data: { full_name: full_name.trim(), phone: phone.trim(), shift, team } },
     });
     fail(error);
   },
   async signOut() {
     await supabase.auth.signOut();
+  },
+  async setMyShift(shift, team) {
+    const { error } = await supabase.rpc('set_my_shift', { p_shift: shift, p_team: team });
+    fail(error);
   },
   async currentProfile() {
     const { data } = await supabase.auth.getSession();
@@ -313,11 +325,43 @@ const supaApi: Api = {
       p_work: input.work,
       p_note: input.note,
       p_parts: input.parts,
+      p_shift: input.shift,
+      p_team: input.team,
     });
     fail(error);
   },
   async deleteMaintenance(id) {
     const { error } = await supabase.rpc('delete_maintenance_record', { p_id: id });
+    fail(error);
+  },
+  async listMaintenanceBetween(from, to) {
+    const { data, error } = await supabase
+      .from('maintenance_records')
+      .select('id, equipment_id, technician, work, note, shift, team, created_by, created_at, equipment:equipment(code), parts:maintenance_parts(item_id, item_name, quantity, unit)')
+      .gte('created_at', from.toISOString())
+      .lt('created_at', to.toISOString())
+      .order('created_at');
+    fail(error);
+    return (data ?? []).map((r: any) => ({ ...r, equipment_code: r.equipment?.code, equipment: undefined, parts: (r.parts ?? []).map((p: any) => ({ ...p, quantity: Number(p.quantity) })) })) as MaintenanceRecord[];
+  },
+  async listDailyWorks(from, to) {
+    const { data, error } = await supabase
+      .from('daily_works')
+      .select('*, author:profiles!daily_works_created_by_fkey(full_name)')
+      .gte('created_at', from.toISOString())
+      .lt('created_at', to.toISOString())
+      .order('created_at', { ascending: false });
+    fail(error);
+    return (data ?? []).map(withAuthorName) as DailyWork[];
+  },
+  async saveDailyWork(input, id) {
+    // Düzeltmede vardiya/ekip ilk girildiği gibi kalır.
+    const { shift: _s, team: _t, ...editable } = input;
+    const { error } = id ? await supabase.from('daily_works').update(editable).eq('id', id) : await supabase.from('daily_works').insert(input);
+    fail(error);
+  },
+  async deleteDailyWork(id) {
+    const { error } = await supabase.from('daily_works').delete().eq('id', id);
     fail(error);
   },
   async listShiftEntries(day, shift, team) {
@@ -376,8 +420,8 @@ const uid = () => Math.random().toString(36).slice(2);
 const demo = {
   me: null as string | null,
   users: [
-    { id: 'admin', full_name: 'Demo Yönetici', phone: '0500 000 00 00', email: 'admin@bhs.app', role: 'admin', status: 'approved', created_at: now(), password: '123456' },
-    { id: 'u1', full_name: 'Ahmet Buruk', phone: '0555 111 22 33', email: 'ahmet@bhs.app', role: 'user', status: 'pending', created_at: now(), password: '123456' },
+    { id: 'admin', full_name: 'Demo Yönetici', phone: '0500 000 00 00', email: 'admin@bhs.app', role: 'admin', status: 'approved', shift: 'A', team: 'Teknik', created_at: now(), password: '123456' },
+    { id: 'u1', full_name: 'Ahmet Buruk', phone: '0555 111 22 33', email: 'ahmet@bhs.app', role: 'user', status: 'pending', shift: null, team: null, created_at: now(), password: '123456' },
   ] as (Profile & { password: string })[],
   notices: [
     { id: 'n1', title: 'Test Bildirisi', body: 'Sistem planlı bakımda', importance: 'normal', photo_url: null, created_by: 'admin', created_at: now(), completed_at: null },
@@ -423,6 +467,9 @@ let demoShifts: StaffShift[] = (() => {
 const demoAssignments: StaffAssignment[] = [];
 let demoEquipment: Equipment[] = EQUIPMENT_CODES.map((code, i) => ({ id: `q${i}`, code, line: lineOf(code), kind: 'Konveyör / Motor', location: '' }));
 const demoMaintenance: MaintenanceRecord[] = [];
+let demoWorks: DailyWork[] = [
+  { id: 'w1', category: 'Köprü bakımı', place: 'Köprü 205', work: 'Körük ve tekerlek kontrolü yapıldı, yağlama tamamlandı.', note: '', photo_url: null, shift: 'A', team: 'Teknik', created_by: 'admin', created_at: now() },
+];
 let demoInventory: InventoryItem[] = [
   { id: 'i1', code: 'SNS-014', name: 'Fotosel sensör', category: 'Sensör', shelf: 'A-03-2', quantity: 12, unit: 'Adet', critical_level: 5, updated_at: now() },
   { id: 'i2', code: 'MTR-220', name: 'Redüktörlü motor 0,75 kW', category: 'Motor', shelf: 'B-01-1', quantity: 2, unit: 'Adet', critical_level: 2, updated_at: now() },
@@ -459,6 +506,11 @@ const demoApi: Api = {
   },
   async signOut() {
     demo.me = null;
+    emit();
+  },
+  async setMyShift(shift, team) {
+    const u = demo.users.find((x) => x.id === demo.me);
+    if (u) Object.assign(u, { shift, team });
     emit();
   },
   async currentProfile() {
@@ -617,7 +669,7 @@ const demoApi: Api = {
     }
     demoInventory = demoInventory.map((i) => ({ ...i, quantity: stock.get(i.id)! }));
     if (old) Object.assign(old, input);
-    else demoMaintenance.push({ ...input, id: uid(), created_at: new Date(Date.now() + demoMaintenance.length).toISOString() });
+    else demoMaintenance.push({ ...input, id: uid(), created_by: demo.me!, created_at: new Date(Date.now() + demoMaintenance.length).toISOString() });
     emit();
   },
   async deleteMaintenance(id) {
@@ -625,6 +677,26 @@ const demoApi: Api = {
     if (i < 0) return;
     for (const p of demoMaintenance[i].parts) demoInventory = demoInventory.map((x) => (x.id === p.item_id ? { ...x, quantity: x.quantity + p.quantity } : x));
     demoMaintenance.splice(i, 1);
+    emit();
+  },
+  async listMaintenanceBetween(from, to) {
+    return demoMaintenance
+      .filter((r) => new Date(r.created_at) >= from && new Date(r.created_at) < to)
+      .map((r) => ({ ...r, equipment_code: demoEquipment.find((e) => e.id === r.equipment_id)?.code }));
+  },
+  async listDailyWorks(from, to) {
+    return demoWorks
+      .filter((w) => new Date(w.created_at) >= from && new Date(w.created_at) < to)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((w) => ({ ...w, author_name: demoName(w.created_by) }));
+  },
+  async saveDailyWork(input, id) {
+    const { shift: _s, team: _t, ...editable } = input;
+    demoWorks = id ? demoWorks.map((w) => (w.id === id ? { ...w, ...editable } : w)) : [...demoWorks, { ...input, id: uid(), created_by: demo.me!, created_at: now() }];
+    emit();
+  },
+  async deleteDailyWork(id) {
+    demoWorks = demoWorks.filter((w) => w.id !== id);
     emit();
   },
   async listShiftEntries(day, shift, team) {

@@ -177,6 +177,8 @@ function MaintenanceForm({ eq, record, onClose }: { eq: Equipment; record?: Main
     try {
       await api.saveMaintenance({
         id: record?.id,
+        shift: profile?.shift ?? null,
+        team: profile?.team ?? null,
         equipment_id: eq.id,
         technician: technician.trim(),
         work: work.trim(),

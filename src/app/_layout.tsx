@@ -15,6 +15,7 @@ function Nav() {
     );
   }
   const approved = profile?.status === 'approved';
+  const hasShift = !!profile?.shift && !!profile?.team;
   return (
     <Stack
       screenOptions={{
@@ -31,7 +32,10 @@ function Nav() {
       <Stack.Protected guard={!!profile && !approved}>
         <Stack.Screen name="onay-bekleniyor" options={{ headerShown: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={approved}>
+      <Stack.Protected guard={approved && !hasShift}>
+        <Stack.Screen name="vardiya-sec" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={approved && hasShift}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="bildiri/duzenle" options={{ title: 'Bildiri' }} />
         <Stack.Screen name="bildiri/arsiv" options={{ title: 'Bildiri Arşivi' }} />

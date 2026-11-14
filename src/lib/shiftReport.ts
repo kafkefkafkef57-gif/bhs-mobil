@@ -1,20 +1,20 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { formatDateLong, formatDay, toDay } from './format';
 import { C } from './theme';
-import { Department, EntryKind, Fault, LINE_NAME, Shift, ShiftEntry, ShiftReport } from './types';
+import { DailyWork, EntryKind, Fault, LINE_NAME, MaintenanceRecord, Shift, ShiftEntry, ShiftReport } from './types';
 
 export const SHIFTS: Shift[] = ['A', 'B', 'C', 'D'];
 export const KINDS: Record<EntryKind, { label: string; plural: string; fg: string; bg: string }> = {
   ariza: { label: 'Arıza', plural: 'Arızalar', fg: C.red, bg: C.redBg },
+  bakim: { label: 'Teknik iş', plural: 'Teknik İşler ve Bakımlar', fg: '#5eead4', bg: '#1c3f3c' },
   bildirim: { label: 'Bildirim', plural: 'Bildirimler', fg: '#7fb0ff', bg: '#22335a' },
   not: { label: 'Not', plural: 'Notlar', fg: C.amber, bg: C.amberBg },
   rutin: { label: 'Vardiya rutini', plural: 'Vardiya Rutinleri', fg: '#34d399', bg: '#1d4238' },
   devir: { label: 'Devir notu', plural: 'Devir Notları', fg: C.violet, bg: C.violetBg },
 };
-export const KIND_ORDER: EntryKind[] = ['ariza', 'bildirim', 'not', 'rutin', 'devir'];
+export const KIND_ORDER: EntryKind[] = ['ariza', 'bakim', 'bildirim', 'not', 'rutin', 'devir'];
 
 /** Arıza kaydını vardiya akışında ve raporda gösterilecek kayda çevirir. */
 export const faultToEntry = (f: Fault): ShiftEntry => ({
@@ -30,21 +30,32 @@ export const faultToEntry = (f: Fault): ShiftEntry => ({
   author_name: f.author_name,
   created_at: f.created_at,
 });
+/** Günlük teknik işi vardiya akışında ve raporda gösterilecek kayda çevirir (vardiyası belli olmayanlar alınmaz). */
+export const workToEntry = (w: DailyWork): ShiftEntry | null =>
+  w.shift && w.team
+    ? { id: w.id, day: toDay(new Date(w.created_at)), shift: w.shift, team: w.team, kind: 'bakim', title: [w.category, w.place].filter(Boolean).join(' · '), body: [w.work, w.note && `Not: ${w.note}`].filter(Boolean).join('\n'), photo_url: w.photo_url, created_by: w.created_by, author_name: w.author_name, created_at: w.created_at }
+    : null;
+
+/** Ekipman bakım kaydını vardiya akışında ve raporda gösterilecek kayda çevirir. */
+export const maintenanceToEntry = (r: MaintenanceRecord): ShiftEntry | null =>
+  r.shift && r.team
+    ? {
+        id: r.id,
+        day: toDay(new Date(r.created_at)),
+        shift: r.shift,
+        team: r.team,
+        kind: 'bakim',
+        title: `Ekipman bakımı · ${r.equipment_code ?? ''}`,
+        body: [r.work, r.parts.length ? `Kullanılan parçalar: ${r.parts.map((p) => `${p.item_name} (${String(p.quantity).replace('.', ',')} ${p.unit})`).join(', ')}` : '', r.note && `Not: ${r.note}`].filter(Boolean).join('\n'),
+        photo_url: null,
+        created_by: r.created_by ?? '',
+        author_name: r.technician,
+        created_at: r.created_at,
+      }
+    : null;
+
 export const time = (iso: string) => formatDateLong(iso).slice(-5);
 export const reportTitle = (r: Pick<ShiftReport, 'day' | 'shift' | 'team'>) => `${formatDay(r.day)} · ${r.shift} Vardiyası · ${r.team === 'Tümü' ? 'Tüm ekipler' : r.team}`;
-
-/** Kullanıcının son seçtiği vardiya ve ekip; bir sonraki açılışta hazır gelsin. */
-export type ShiftPrefs = { shift: Shift; team: Department };
-const PREFS_KEY = 'vardiya-tercihi';
-export async function loadShiftPrefs(): Promise<ShiftPrefs | null> {
-  try {
-    const raw = await AsyncStorage.getItem(PREFS_KEY);
-    return raw ? (JSON.parse(raw) as ShiftPrefs) : null;
-  } catch {
-    return null;
-  }
-}
-export const saveShiftPrefs = (p: ShiftPrefs) => AsyncStorage.setItem(PREFS_KEY, JSON.stringify(p)).catch(() => {});
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

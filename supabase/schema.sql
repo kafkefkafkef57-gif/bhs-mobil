@@ -13,6 +13,10 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Her kullanıcının vardiyası (A-D) ve ekibi; girdiği kayıtlar buna göre vardiyaya işlenir.
+alter table public.profiles add column if not exists shift text check (shift in ('A', 'B', 'C', 'D'));
+alter table public.profiles add column if not exists team text check (team in ('Operasyon', 'Teknik'));
+
 -- Kayıt olan her kullanıcı için profil açılır. İLK kayıt olan kişi otomatik
 -- olarak onaylı yönetici (admin) olur; sonrakiler yönetici onayını bekler.
 create or replace function public.handle_new_user() returns trigger
@@ -20,14 +24,16 @@ language plpgsql security definer set search_path = public as $$
 declare first_user boolean;
 begin
   select not exists (select 1 from public.profiles) into first_user;
-  insert into public.profiles (id, full_name, phone, email, role, status)
+  insert into public.profiles (id, full_name, phone, email, role, status, shift, team)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'full_name', ''),
     coalesce(new.raw_user_meta_data ->> 'phone', ''),
     coalesce(new.email, ''),
     case when first_user then 'admin' else 'user' end,
-    case when first_user then 'approved' else 'pending' end
+    case when first_user then 'approved' else 'pending' end,
+    case when new.raw_user_meta_data ->> 'shift' in ('A', 'B', 'C', 'D') then new.raw_user_meta_data ->> 'shift' end,
+    case when new.raw_user_meta_data ->> 'team' in ('Operasyon', 'Teknik') then new.raw_user_meta_data ->> 'team' end
   );
   return new;
 end $$;
@@ -54,6 +60,16 @@ create policy profiles_select on public.profiles for select to authenticated
 drop policy if exists profiles_admin_update on public.profiles;
 create policy profiles_admin_update on public.profiles for update to authenticated
   using (public.is_admin()) with check (public.is_admin());
+
+-- Kullanıcı yalnızca kendi vardiya ve ekibini değiştirebilir (rol ve onay durumuna dokunamaz).
+create or replace function public.set_my_shift(p_shift text, p_team text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_shift not in ('A', 'B', 'C', 'D') or p_team not in ('Operasyon', 'Teknik') then
+    raise exception 'Geçersiz vardiya ya da ekip.';
+  end if;
+  update public.profiles set shift = p_shift, team = p_team where id = auth.uid();
+end $$;
 
 -- ---------- Ortak bildiri panosu ----------
 create table if not exists public.notices (
@@ -341,6 +357,11 @@ begin
   end if;
 end $$;
 drop function if exists public.add_maintenance_record(uuid, text, text, uuid, numeric, text);
+drop function if exists public.save_maintenance_record(uuid, uuid, text, text, text, jsonb);
+-- Bakımı giren kişinin vardiyası ve ekibi (vardiya akışına ve raporuna düşmesi için).
+alter table public.maintenance_records add column if not exists shift text check (shift in ('A', 'B', 'C', 'D'));
+alter table public.maintenance_records add column if not exists team text check (team in ('Operasyon', 'Teknik'));
+create index if not exists maintenance_records_created_at_idx on public.maintenance_records (created_at);
 
 alter table public.equipment enable row level security;
 alter table public.maintenance_records enable row level security;
@@ -359,7 +380,7 @@ create policy maintenance_parts_all on public.maintenance_parts for all to authe
 -- Düzeltmede önce eski parçalar depoya geri eklenir, sonra yeni parçalar stoktan düşülür.
 -- Herhangi bir parçada stok yetmezse hiçbir şey değişmez (STOK_YETERSIZ hatası).
 create or replace function public.save_maintenance_record(
-  p_id uuid, p_equipment uuid, p_technician text, p_work text, p_note text, p_parts jsonb
+  p_id uuid, p_equipment uuid, p_technician text, p_work text, p_note text, p_parts jsonb, p_shift text, p_team text
 ) returns uuid language plpgsql security invoker set search_path = public as $$
 declare
   v_id uuid := p_id;
@@ -368,8 +389,8 @@ declare
   v_qty numeric;
 begin
   if v_id is null then
-    insert into public.maintenance_records (equipment_id, technician, work, note)
-    values (p_equipment, coalesce(p_technician, ''), p_work, coalesce(p_note, '')) returning id into v_id;
+    insert into public.maintenance_records (equipment_id, technician, work, note, shift, team)
+    values (p_equipment, coalesce(p_technician, ''), p_work, coalesce(p_note, ''), p_shift, p_team) returning id into v_id;
   else
     update public.maintenance_records set technician = coalesce(p_technician, ''), work = p_work, note = coalesce(p_note, '') where id = v_id;
     if not found then raise exception 'Bakım kaydı bulunamadı.'; end if;
@@ -479,6 +500,25 @@ insert into public.equipment (code, line) values
   ('1702.2.2', '1702'), ('8013.6.3', '8013')
 on conflict (code) do nothing;
 
+-- ---------- Günlük köprü ve arıza bakım (teknisyenlerin gün içinde yaptığı işler) ----------
+create table if not exists public.daily_works (
+  id uuid primary key default gen_random_uuid(),
+  category text not null default 'Diğer',
+  place text not null default '',
+  work text not null,
+  note text not null default '',
+  photo_url text,
+  shift text check (shift in ('A', 'B', 'C', 'D')),
+  team text check (team in ('Operasyon', 'Teknik')),
+  created_by uuid not null default auth.uid() references public.profiles (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists daily_works_created_at_idx on public.daily_works (created_at);
+alter table public.daily_works enable row level security;
+drop policy if exists daily_works_all on public.daily_works;
+create policy daily_works_all on public.daily_works for all to authenticated
+  using (public.is_approved()) with check (public.is_approved());
+
 -- ---------- Fotoğraf deposu ----------
 insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
   on conflict (id) do nothing;
@@ -490,7 +530,7 @@ create policy photos_insert on storage.objects for insert to authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles', 'notices', 'faults', 'fault_zones', 'inventory_items', 'equipment', 'maintenance_records', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
+  foreach t in array array['profiles', 'notices', 'faults', 'fault_zones', 'inventory_items', 'equipment', 'maintenance_records', 'daily_works', 'reports', 'tasks', 'staff_assignments', 'shift_entries', 'shift_reports'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;
