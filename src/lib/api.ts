@@ -1,7 +1,8 @@
 import { isDemo, supabase } from './supabase';
-import { Fault, FaultInput, FaultZone, InventoryInput, InventoryItem, Line, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
+import { compareCodes, Equipment, Fault, FaultInput, FaultZone, InventoryInput, InventoryItem, Line, lineOf, MaintenanceInput, MaintenanceRecord, Location, ReportTeam, Shift, ShiftEntry, ShiftEntryInput, ShiftReport, Notice, NoticeInput, Photo, Profile, Report, ReportInput, SignUpInput, Staff, StaffAssignment, StaffShift, Status, Table, Task, TaskInput, TaskStatus } from './types';
 import { addDays, toDay } from './format';
 import { PlanRow } from './planImport';
+import { EQUIPMENT_CODES } from './equipmentSeed';
 
 export interface Api {
   signIn(email: string, password: string): Promise<void>;
@@ -40,6 +41,14 @@ export interface Api {
   listInventory(): Promise<InventoryItem[]>;
   saveInventoryItem(input: InventoryInput, id?: string): Promise<void>;
   deleteInventoryItem(id: string): Promise<void>;
+  listEquipment(): Promise<Equipment[]>;
+  addEquipment(code: string, location: string): Promise<void>;
+  updateEquipment(id: string, patch: Pick<Equipment, 'kind' | 'location'>): Promise<void>;
+  /** Her ekipmanın bakım kaydı sayısı (kaydı olmayanlar listede yer almaz). */
+  maintenanceCounts(): Promise<Record<string, number>>;
+  listMaintenance(equipmentId: string): Promise<MaintenanceRecord[]>;
+  /** Bakım kaydını ekler; yedek parça seçildiyse aynı işlemde depo stokundan düşer. */
+  addMaintenance(input: MaintenanceInput): Promise<void>;
   /** team verilmezse tüm ekipler. */
   listShiftEntries(day: string, shift: Shift, team?: ShiftEntry['team']): Promise<ShiftEntry[]>;
   saveShiftEntry(input: ShiftEntryInput): Promise<void>;
@@ -61,6 +70,7 @@ const startOfToday = () => {
 /* ----------------------------- Supabase ----------------------------- */
 
 const ERRORS: [string, string][] = [
+  ['STOK_YETERSIZ', 'Depoda bu parçadan yeterli stok yok.'],
   ['Invalid login credentials', 'E-posta veya şifre hatalı.'],
   ['User already registered', 'Bu e-posta ile zaten bir kayıt var.'],
   ['Email not confirmed', 'E-posta adresiniz henüz doğrulanmadı.'],
@@ -263,6 +273,43 @@ const supaApi: Api = {
     const { error } = await supabase.from('inventory_items').delete().eq('id', id);
     fail(error);
   },
+  async listEquipment() {
+    const { data, error } = await supabase.from('equipment').select('id, code, line, kind, location').limit(10000);
+    fail(error);
+    return ((data ?? []) as Equipment[]).sort((a, b) => compareCodes(a.code, b.code));
+  },
+  async addEquipment(code, location) {
+    const { error } = await supabase.from('equipment').insert({ code, line: lineOf(code), location });
+    if (error?.code === '23505') throw new Error('Bu numarayla bir ekipman zaten kayıtlı.');
+    fail(error);
+  },
+  async updateEquipment(id, patch) {
+    const { error } = await supabase.from('equipment').update(patch).eq('id', id);
+    fail(error);
+  },
+  async maintenanceCounts() {
+    const { data, error } = await supabase.from('maintenance_records').select('equipment_id').limit(20000);
+    fail(error);
+    const out: Record<string, number> = {};
+    for (const r of data ?? []) out[r.equipment_id] = (out[r.equipment_id] ?? 0) + 1;
+    return out;
+  },
+  async listMaintenance(equipmentId) {
+    const { data, error } = await supabase.from('maintenance_records').select('*').eq('equipment_id', equipmentId).order('created_at', { ascending: false });
+    fail(error);
+    return (data ?? []).map((r) => ({ ...r, quantity_used: Number(r.quantity_used) })) as MaintenanceRecord[];
+  },
+  async addMaintenance(input) {
+    const { error } = await supabase.rpc('add_maintenance_record', {
+      p_equipment: input.equipment_id,
+      p_technician: input.technician,
+      p_work: input.work,
+      p_item: input.item_id,
+      p_quantity: input.quantity_used,
+      p_note: input.note,
+    });
+    fail(error);
+  },
   async listShiftEntries(day, shift, team) {
     let q = supabase.from('shift_entries').select('*, author:profiles!shift_entries_created_by_fkey(full_name)').eq('day', day).eq('shift', shift);
     if (team) q = q.eq('team', team);
@@ -364,6 +411,8 @@ let demoShifts: StaffShift[] = (() => {
   return demoStaff.flatMap((st, i) => Array.from({ length: 33 }, (_, d) => ({ staff_id: st.id, day: addDays(start, d), value: i === 3 && d === 9 ? 'Yİ' : cycle[(d + i) % 4] })));
 })();
 const demoAssignments: StaffAssignment[] = [];
+let demoEquipment: Equipment[] = EQUIPMENT_CODES.map((code, i) => ({ id: `q${i}`, code, line: lineOf(code), kind: 'Konveyör / Motor', location: '' }));
+const demoMaintenance: MaintenanceRecord[] = [];
 let demoInventory: InventoryItem[] = [
   { id: 'i1', code: 'SNS-014', name: 'Fotosel sensör', category: 'Sensör', shelf: 'A-03-2', quantity: 12, unit: 'Adet', critical_level: 5, updated_at: now() },
   { id: 'i2', code: 'MTR-220', name: 'Redüktörlü motor 0,75 kW', category: 'Motor', shelf: 'B-01-1', quantity: 2, unit: 'Adet', critical_level: 2, updated_at: now() },
@@ -523,6 +572,33 @@ const demoApi: Api = {
   },
   async deleteInventoryItem(id) {
     demoInventory = demoInventory.filter((i) => i.id !== id);
+    emit();
+  },
+  async listEquipment() {
+    return [...demoEquipment].sort((a, b) => compareCodes(a.code, b.code));
+  },
+  async addEquipment(code, location) {
+    if (demoEquipment.some((e) => e.code === code)) throw new Error('Bu numarayla bir ekipman zaten kayıtlı.');
+    demoEquipment = [...demoEquipment, { id: uid(), code, line: lineOf(code), kind: 'Konveyör / Motor', location }];
+    emit();
+  },
+  async updateEquipment(id, patch) {
+    demoEquipment = demoEquipment.map((e) => (e.id === id ? { ...e, ...patch } : e));
+    emit();
+  },
+  async maintenanceCounts() {
+    const out: Record<string, number> = {};
+    for (const r of demoMaintenance) out[r.equipment_id] = (out[r.equipment_id] ?? 0) + 1;
+    return out;
+  },
+  async listMaintenance(equipmentId) {
+    return demoMaintenance.filter((r) => r.equipment_id === equipmentId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+  async addMaintenance(input) {
+    const item = demoInventory.find((i) => i.id === input.item_id);
+    if (item && item.quantity < input.quantity_used) throw new Error(`Depoda yeterli stok yok (${item.name}: ${item.quantity} ${item.unit}).`);
+    if (item) demoInventory = demoInventory.map((i) => (i.id === item.id ? { ...i, quantity: i.quantity - input.quantity_used } : i));
+    demoMaintenance.push({ ...input, id: uid(), item_name: item?.name ?? '', unit: item?.unit ?? '', quantity_used: item ? input.quantity_used : 0, created_at: new Date(Date.now() + demoMaintenance.length).toISOString() });
     emit();
   },
   async listShiftEntries(day, shift, team) {

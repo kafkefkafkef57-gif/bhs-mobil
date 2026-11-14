@@ -29,7 +29,7 @@ export type Notice = {
 export type NoticeInput = Pick<Notice, 'title' | 'body' | 'importance' | 'photo_url'>;
 export type Photo = { uri: string; base64?: string | null; mimeType?: string | null };
 export type SignUpInput = { full_name: string; phone: string; email: string; password: string };
-export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'inventory_items' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
+export type Table = 'profiles' | 'notices' | 'faults' | 'fault_zones' | 'inventory_items' | 'equipment' | 'maintenance_records' | 'reports' | 'tasks' | 'staff_assignments' | 'shift_entries' | 'shift_reports';
 
 /** Depodaki malzeme / yedek parça. */
 export type InventoryItem = {
@@ -46,6 +46,32 @@ export type InventoryItem = {
 };
 export type InventoryInput = Omit<InventoryItem, 'id' | 'updated_at'>;
 export const isCritical = (i: Pick<InventoryItem, 'quantity' | 'critical_level'>) => i.quantity <= i.critical_level;
+
+/** Bakımı yapılan ekipman (konveyör bandı / motor); numarası "101.2.7" gibidir, ilk bölüm hattır. */
+export type Equipment = { id: string; code: string; line: string; kind: string; location: string };
+export type MaintenanceRecord = {
+  id: string;
+  equipment_id: string;
+  technician: string;
+  work: string;
+  /** Kullanılan yedek parça (depodan düşülür); parça kullanılmadıysa boş. */
+  item_id: string | null;
+  item_name: string;
+  quantity_used: number;
+  unit: string;
+  note: string;
+  created_at: string;
+};
+export type MaintenanceInput = Pick<MaintenanceRecord, 'equipment_id' | 'technician' | 'work' | 'item_id' | 'quantity_used' | 'note'>;
+/** "101.2.7" -> "101" */
+export const lineOf = (code: string) => code.split('.')[0];
+/** Ekipman numaralarını sayısal sıralar: 101.2.7 < 101.26.1 < 1001.2.1 */
+export const compareCodes = (a: string, b: string) => {
+  const x = a.split('.').map(Number);
+  const y = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? -1) !== (y[i] ?? -1)) return (x[i] ?? -1) - (y[i] ?? -1);
+  return 0;
+};
 
 export type Line = 'dogu' | 'bati';
 export const LINE_NAME: Record<Line, string> = { dogu: 'Doğu Hattı', bati: 'Batı Hattı' };
