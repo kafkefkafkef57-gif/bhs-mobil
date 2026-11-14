@@ -49,20 +49,20 @@ export const isCritical = (i: Pick<InventoryItem, 'quantity' | 'critical_level'>
 
 /** Bakımı yapılan ekipman (konveyör bandı / motor); numarası "101.2.7" gibidir, ilk bölüm hattır. */
 export type Equipment = { id: string; code: string; line: string; kind: string; location: string };
+/** Bir bakımda kullanılan yedek parça. item_id, malzeme sonradan depodan silindiyse boştur. */
+export type MaintenancePart = { item_id: string | null; item_name: string; quantity: number; unit: string };
 export type MaintenanceRecord = {
   id: string;
   equipment_id: string;
   technician: string;
   work: string;
-  /** Kullanılan yedek parça (depodan düşülür); parça kullanılmadıysa boş. */
-  item_id: string | null;
-  item_name: string;
-  quantity_used: number;
-  unit: string;
   note: string;
+  /** Kullanılan yedek parçalar (depodan düşülür); parça kullanılmadıysa boş liste. */
+  parts: MaintenancePart[];
   created_at: string;
 };
-export type MaintenanceInput = Pick<MaintenanceRecord, 'equipment_id' | 'technician' | 'work' | 'item_id' | 'quantity_used' | 'note'>;
+/** id verilirse mevcut kayıt düzeltilir. */
+export type MaintenanceInput = Pick<MaintenanceRecord, 'equipment_id' | 'technician' | 'work' | 'note' | 'parts'> & { id?: string };
 /** "101.2.7" -> "101" */
 export const lineOf = (code: string) => code.split('.')[0];
 /** Ekipman numaralarını sayısal sıralar: 101.2.7 < 101.26.1 < 1001.2.1 */

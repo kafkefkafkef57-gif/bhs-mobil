@@ -73,7 +73,7 @@ export default function PersonelDetay() {
             <Row label="Sicil numarası" value={person.sicil} />
             <Row label="Unvan" value={person.title} />
             <Row label="Departman" value={person.department} />
-            {todayValue && <Row label="Bugün" value={shiftLabel(todayValue)} />}
+            {!!todayValue && <Row label="Bugün" value={shiftLabel(todayValue)} />}
           </Card>
         </>
       )}

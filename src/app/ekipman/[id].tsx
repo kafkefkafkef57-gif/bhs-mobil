@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Pencil, Search, Wrench, X } from 'lucide-react-native';
+import { Pencil, Search, Trash2, Wrench, X } from 'lucide-react-native';
 import { ReactNode, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import { KeyboardPad } from '../../lib/KeyboardPad';
 import { C } from '../../lib/theme';
 import { Equipment, InventoryItem, MaintenanceRecord } from '../../lib/types';
 import { useLive } from '../../lib/useLive';
-import { Badge, Btn, Card, ErrorText, Field, s } from '../../lib/ui';
+import { Badge, Btn, Card, confirm, ErrorText, Field, s } from '../../lib/ui';
 
 const fmt = (n: number) => String(n).replace('.', ',');
 const parseNum = (t: string) => Number(t.trim().replace(',', '.'));
@@ -30,12 +30,15 @@ export default function EkipmanDetay() {
   const equipment = useLive(() => api.listEquipment(), ['equipment'], [] as Equipment[]);
   const history = useLive(() => api.listMaintenance(id), ['maintenance_records'], [] as MaintenanceRecord[]);
   const [sheet, setSheet] = useState<'bakim' | 'duzenle' | null>(null);
+  const [editing, setEditing] = useState<MaintenanceRecord | undefined>(undefined); // düzeltilen bakım kaydı
+  const [actionError, setActionError] = useState<string | null>(null);
+  const openForm = (record?: MaintenanceRecord) => (setEditing(record), setSheet('bakim'));
   const eq = equipment.data.find((e) => e.id === id);
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={[s.content, { paddingBottom: 40 }]}>
       <Stack.Screen options={{ title: eq?.code ?? 'Ekipman' }} />
-      <ErrorText>{equipment.error ?? history.error}</ErrorText>
+      <ErrorText>{equipment.error ?? history.error ?? actionError}</ErrorText>
       {eq && (
         <>
           <View>
@@ -44,7 +47,7 @@ export default function EkipmanDetay() {
           </View>
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
             <Btn label="Ekipmanı Düzenle" icon={Pencil} onPress={() => setSheet('duzenle')} />
-            <Btn label="Bakım Kaydı Ekle" icon={Wrench} variant="primary" onPress={() => setSheet('bakim')} />
+            <Btn label="Bakım Kaydı Ekle" icon={Wrench} variant="primary" onPress={() => openForm()} />
           </View>
           <Card style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -75,13 +78,36 @@ export default function EkipmanDetay() {
                 {formatDateLong(r.created_at)} · {r.technician || '—'}
               </Text>
               <Text style={{ color: C.text, fontSize: 16, lineHeight: 23 }}>{r.work}</Text>
-              {!!r.item_name && <Badge label={`Kullanılan parça: ${r.item_name} · ${fmt(r.quantity_used)} ${r.unit}`} fg={C.amber} bg={C.amberBg} />}
+              {r.parts.length > 0 && (
+                <View style={{ gap: 6 }}>
+                  <Text style={[s.muted, { fontSize: 13 }]}>Kullanılan parçalar</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {r.parts.map((p, i) => (
+                      <Badge key={`${p.item_name}-${i}`} label={`${p.item_name} · ${fmt(p.quantity)} ${p.unit}`} fg={C.amber} bg={C.amberBg} />
+                    ))}
+                  </View>
+                </View>
+              )}
               {!!r.note && <Text style={s.muted}>Not: {r.note}</Text>}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Btn label="Düzelt" icon={Pencil} style={{ flex: 1 }} onPress={() => openForm(r)} />
+                <Btn
+                  label="Sil"
+                  icon={Trash2}
+                  variant="danger"
+                  style={{ flex: 1 }}
+                  onPress={() =>
+                    confirm('Bakım kaydı silinsin mi?', r.parts.some((p) => p.item_id) ? 'Kayıt silinecek ve kullanılan parçalar depo stokuna geri eklenecek.' : 'Kayıt kalıcı olarak silinecek.', () =>
+                      api.deleteMaintenance(r.id).catch((e) => setActionError(e.message)),
+                    )
+                  }
+                />
+              </View>
             </Card>
           ))}
 
           <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={() => setSheet(null)}>
-            {sheet === 'bakim' && <MaintenanceForm eq={eq} onClose={() => setSheet(null)} />}
+            {sheet === 'bakim' && <MaintenanceForm eq={eq} record={editing} onClose={() => setSheet(null)} />}
             {sheet === 'duzenle' && <EditForm eq={eq} onClose={() => setSheet(null)} />}
           </Modal>
         </>
@@ -110,31 +136,53 @@ function Sheet({ title, subtitle, onClose, children }: { title: string; subtitle
   );
 }
 
-function MaintenanceForm({ eq, onClose }: { eq: Equipment; onClose: () => void }) {
+type PartRow = { item_id: string | null; item_name: string; unit: string; qty: string; available: number | null };
+
+/** Yeni bakım kaydı ya da (record verilirse) mevcut kaydın düzeltilmesi. */
+function MaintenanceForm({ eq, record, onClose }: { eq: Equipment; record?: MaintenanceRecord; onClose: () => void }) {
   const { profile } = useAuth();
   const inventory = useLive(() => api.listInventory(), [], [] as InventoryItem[]);
-  const [technician, setTechnician] = useState(profile?.full_name ?? '');
-  const [work, setWork] = useState('');
-  const [item, setItem] = useState<InventoryItem | null>(null);
+  const [technician, setTechnician] = useState(record?.technician ?? profile?.full_name ?? '');
+  const [work, setWork] = useState(record?.work ?? '');
+  // Düzeltmede eski miktar depoya geri döneceği için kullanılabilir stok = depodaki + bu kayıtta kullanılmış olan.
+  const [parts, setParts] = useState<PartRow[]>(() => (record?.parts ?? []).map((p) => ({ item_id: p.item_id, item_name: p.item_name, unit: p.unit, qty: fmt(p.quantity), available: null })));
   const [partQuery, setPartQuery] = useState('');
-  const [qty, setQty] = useState('1');
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(record?.note ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const usedBefore = (itemId: string | null) => record?.parts.find((p) => p.item_id === itemId)?.quantity ?? 0;
+  const availableOf = (p: PartRow) => {
+    if (!p.item_id) return null; // depodan silinmiş malzeme: stok denetimi yok
+    const inStock = inventory.data.find((i) => i.id === p.item_id)?.quantity;
+    return inStock === undefined ? p.available : inStock + usedBefore(p.item_id);
+  };
   const needle = partQuery.trim().toLocaleLowerCase('tr');
-  const matches = needle ? inventory.data.filter((i) => `${i.name} ${i.code} ${i.category}`.toLocaleLowerCase('tr').includes(needle)).slice(0, 6) : [];
+  const matches = needle
+    ? inventory.data.filter((i) => !parts.some((p) => p.item_id === i.id) && `${i.name} ${i.code} ${i.category}`.toLocaleLowerCase('tr').includes(needle)).slice(0, 6)
+    : [];
+  const setQty = (index: number, qty: string) => (setParts((list) => list.map((p, i) => (i === index ? { ...p, qty } : p))), setError(null));
 
   const submit = async () => {
-    const used = parseNum(qty);
     if (!technician.trim()) return setError('Bakımı yapanı yazın.');
     if (!work.trim()) return setError('Yapılan işlemi yazın.');
-    if (item && (!Number.isFinite(used) || used <= 0)) return setError('Kullanılan miktar sıfırdan büyük bir sayı olmalı.');
-    if (item && used > item.quantity) return setError(`Depoda yeterli stok yok: ${item.name} için ${fmt(item.quantity)} ${item.unit} var.`);
+    for (const p of parts) {
+      const used = parseNum(p.qty);
+      const available = availableOf(p);
+      if (!Number.isFinite(used) || used <= 0) return setError(`${p.item_name}: kullanılan miktar sıfırdan büyük bir sayı olmalı.`);
+      if (available !== null && used > available) return setError(`Depoda yeterli stok yok: ${p.item_name} için ${fmt(available)} ${p.unit} var.`);
+    }
     setBusy(true);
     setError(null);
     try {
-      await api.addMaintenance({ equipment_id: eq.id, technician: technician.trim(), work: work.trim(), item_id: item?.id ?? null, quantity_used: item ? used : 0, note: note.trim() });
+      await api.saveMaintenance({
+        id: record?.id,
+        equipment_id: eq.id,
+        technician: technician.trim(),
+        work: work.trim(),
+        note: note.trim(),
+        parts: parts.map((p) => ({ item_id: p.item_id, item_name: p.item_name, unit: p.unit, quantity: parseNum(p.qty) })),
+      });
       onClose();
     } catch (e: any) {
       setError(e.message);
@@ -143,56 +191,56 @@ function MaintenanceForm({ eq, onClose }: { eq: Equipment; onClose: () => void }
   };
 
   return (
-    <Sheet title="Bakım Kaydı Ekle" subtitle={`${eq.code} için yapılan işlemi ve kullanılan parçayı kaydedin.`} onClose={onClose}>
+    <Sheet title={record ? 'Bakım Kaydını Düzelt' : 'Bakım Kaydı Ekle'} subtitle={`${eq.code} için yapılan işlemi ve varsa kullanılan parçaları kaydedin.`} onClose={onClose}>
       <Field label="Bakımı yapan" value={technician} onChangeText={setTechnician} placeholder="Teknisyen adı" />
       <Field label="Yapılan işlem" value={work} onChangeText={setWork} placeholder="Bakım veya onarım açıklaması" multiline />
 
       <View style={{ gap: 8 }}>
-        <Text style={s.label}>Kullanılan yedek parça</Text>
-        {item ? (
-          <>
-            <View style={[s.input, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.text, fontSize: 16, fontWeight: '700' }}>{item.name}</Text>
-                <Text style={[s.muted, { fontSize: 13 }]}>
-                  {item.code} · Depoda {fmt(item.quantity)} {item.unit}
-                </Text>
+        <Text style={s.label}>Kullanılan yedek parçalar (isteğe bağlı)</Text>
+        {parts.map((p, i) => {
+          const available = availableOf(p);
+          return (
+            <View key={p.item_id ?? `${p.item_name}-${i}`} style={st.part}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: C.text, fontSize: 15, fontWeight: '700' }}>{p.item_name}</Text>
+                <Text style={[s.muted, { fontSize: 12 }]}>{available === null ? 'Depo kaydı yok' : `Kullanılabilir: ${fmt(available)} ${p.unit}`}</Text>
               </View>
-              <Pressable onPress={() => setItem(null)} accessibilityRole="button" accessibilityLabel="Parçayı kaldır" hitSlop={12}>
+              <TextInput value={p.qty} onChangeText={(v) => setQty(i, v)} keyboardType="decimal-pad" selectTextOnFocus accessibilityLabel={`${p.item_name} miktarı`} style={[s.input, { width: 72, textAlign: 'center', paddingVertical: 8 }]} />
+              <Text style={[s.muted, { fontSize: 13, minWidth: 34 }]}>{p.unit}</Text>
+              <Pressable onPress={() => setParts((list) => list.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`${p.item_name} parçasını çıkar`} hitSlop={10} style={{ width: 32, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <X color={C.muted} size={20} />
               </Pressable>
             </View>
-            <Field label={`Kullanılan miktar (${item.unit})`} value={qty} onChangeText={(v) => (setQty(v), setError(null))} keyboardType="decimal-pad" selectTextOnFocus />
-            <Text style={[s.muted, { fontSize: 13 }]}>Kaydedince bu miktar depo stokundan düşer.</Text>
-          </>
-        ) : (
-          <>
-            <View style={[s.input, { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 0 }]}>
-              <Search color={C.muted} size={18} />
-              <TextInput value={partQuery} onChangeText={setPartQuery} placeholder="Parça adı veya kodu ile arayın" placeholderTextColor="#6b6b73" accessibilityLabel="Yedek parça ara" style={{ flex: 1, color: C.text, fontSize: 16, paddingVertical: 12 }} />
-            </View>
-            {!needle && <Text style={[s.muted, { fontSize: 13 }]}>Parça kullanılmadıysa boş bırakın.</Text>}
-            {needle && matches.length === 0 && <Text style={[s.muted, { fontSize: 13 }]}>Depoda bu aramaya uyan parça yok.</Text>}
-            {matches.map((i) => (
-              <Pressable
-                key={i.id}
-                onPress={() => (setItem(i), setPartQuery(''), setError(null))}
-                disabled={i.quantity <= 0}
-                accessibilityRole="button"
-                accessibilityLabel={`${i.name} seç`}
-                style={[st.match, i.quantity <= 0 && { opacity: 0.5 }]}
-              >
-                <Text style={{ color: C.text, fontSize: 15, fontWeight: '700', flex: 1 }}>{i.name}</Text>
-                <Text style={[s.muted, { fontSize: 13 }]}>{i.quantity <= 0 ? 'Stok yok' : `${fmt(i.quantity)} ${i.unit}`}</Text>
-              </Pressable>
-            ))}
-          </>
-        )}
+          );
+        })}
+        <View style={[s.input, { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 0 }]}>
+          <Search color={C.muted} size={18} />
+          <TextInput value={partQuery} onChangeText={setPartQuery} placeholder={parts.length ? 'Başka parça ekle' : 'Parça adı veya kodu ile arayın'} placeholderTextColor="#6b6b73" accessibilityLabel="Yedek parça ara" style={{ flex: 1, color: C.text, fontSize: 16, paddingVertical: 12 }} />
+        </View>
+        {!needle && parts.length === 0 && <Text style={[s.muted, { fontSize: 13 }]}>Parça kullanılmadıysa boş bırakın.</Text>}
+        {parts.length > 0 && <Text style={[s.muted, { fontSize: 13 }]}>Kaydedince bu miktarlar depo stokundan düşer.</Text>}
+        {!!needle && matches.length === 0 && <Text style={[s.muted, { fontSize: 13 }]}>Depoda bu aramaya uyan başka parça yok.</Text>}
+        {matches.map((i) => {
+          const none = i.quantity + usedBefore(i.id) <= 0;
+          return (
+            <Pressable
+              key={i.id}
+              onPress={() => (setParts((list) => [...list, { item_id: i.id, item_name: i.name, unit: i.unit, qty: '1', available: i.quantity }]), setPartQuery(''), setError(null))}
+              disabled={none}
+              accessibilityRole="button"
+              accessibilityLabel={`${i.name} ekle`}
+              style={[st.match, none && { opacity: 0.5 }]}
+            >
+              <Text style={{ color: C.text, fontSize: 15, fontWeight: '700', flex: 1 }}>{i.name}</Text>
+              <Text style={[s.muted, { fontSize: 13 }]}>{none ? 'Stok yok' : `${fmt(i.quantity)} ${i.unit}`}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <Field label="Ek not" value={note} onChangeText={setNote} placeholder="İsteğe bağlı" multiline />
       <ErrorText>{error ?? inventory.error}</ErrorText>
-      <Btn label="Bakım Kaydını Kaydet" variant="primary" onPress={submit} loading={busy} />
+      <Btn label={record ? 'Değişiklikleri Kaydet' : 'Bakım Kaydını Kaydet'} variant="primary" onPress={submit} loading={busy} />
       <Btn label="Vazgeç" onPress={onClose} />
     </Sheet>
   );
@@ -228,5 +276,6 @@ const st = StyleSheet.create({
   backdrop: { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, gap: 14, maxHeight: '92%' },
   handle: { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: C.border },
+  part: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 4, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.bg },
   match: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: C.bg },
 });

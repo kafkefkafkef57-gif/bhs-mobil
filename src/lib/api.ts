@@ -47,8 +47,10 @@ export interface Api {
   /** Her ekipmanın bakım kaydı sayısı (kaydı olmayanlar listede yer almaz). */
   maintenanceCounts(): Promise<Record<string, number>>;
   listMaintenance(equipmentId: string): Promise<MaintenanceRecord[]>;
-  /** Bakım kaydını ekler; yedek parça seçildiyse aynı işlemde depo stokundan düşer. */
-  addMaintenance(input: MaintenanceInput): Promise<void>;
+  /** Bakım kaydını ekler ya da düzeltir; parçalar aynı işlemde depo stokundan düşer (düzeltmede eski parçalar önce depoya geri eklenir). */
+  saveMaintenance(input: MaintenanceInput): Promise<void>;
+  /** Bakım kaydını siler; kullanılan parçalar depoya geri eklenir. */
+  deleteMaintenance(id: string): Promise<void>;
   /** team verilmezse tüm ekipler. */
   listShiftEntries(day: string, shift: Shift, team?: ShiftEntry['team']): Promise<ShiftEntry[]>;
   saveShiftEntry(input: ShiftEntryInput): Promise<void>;
@@ -295,19 +297,27 @@ const supaApi: Api = {
     return out;
   },
   async listMaintenance(equipmentId) {
-    const { data, error } = await supabase.from('maintenance_records').select('*').eq('equipment_id', equipmentId).order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('maintenance_records')
+      .select('id, equipment_id, technician, work, note, created_at, parts:maintenance_parts(item_id, item_name, quantity, unit)')
+      .eq('equipment_id', equipmentId)
+      .order('created_at', { ascending: false });
     fail(error);
-    return (data ?? []).map((r) => ({ ...r, quantity_used: Number(r.quantity_used) })) as MaintenanceRecord[];
+    return (data ?? []).map((r: any) => ({ ...r, parts: (r.parts ?? []).map((p: any) => ({ ...p, quantity: Number(p.quantity) })) })) as MaintenanceRecord[];
   },
-  async addMaintenance(input) {
-    const { error } = await supabase.rpc('add_maintenance_record', {
+  async saveMaintenance(input) {
+    const { error } = await supabase.rpc('save_maintenance_record', {
+      p_id: input.id ?? null,
       p_equipment: input.equipment_id,
       p_technician: input.technician,
       p_work: input.work,
-      p_item: input.item_id,
-      p_quantity: input.quantity_used,
       p_note: input.note,
+      p_parts: input.parts,
     });
+    fail(error);
+  },
+  async deleteMaintenance(id) {
+    const { error } = await supabase.rpc('delete_maintenance_record', { p_id: id });
     fail(error);
   },
   async listShiftEntries(day, shift, team) {
@@ -592,13 +602,29 @@ const demoApi: Api = {
     return out;
   },
   async listMaintenance(equipmentId) {
-    return demoMaintenance.filter((r) => r.equipment_id === equipmentId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return demoMaintenance.filter((r) => r.equipment_id === equipmentId).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((r) => ({ ...r, parts: [...r.parts] }));
   },
-  async addMaintenance(input) {
-    const item = demoInventory.find((i) => i.id === input.item_id);
-    if (item && item.quantity < input.quantity_used) throw new Error(`Depoda yeterli stok yok (${item.name}: ${item.quantity} ${item.unit}).`);
-    if (item) demoInventory = demoInventory.map((i) => (i.id === item.id ? { ...i, quantity: i.quantity - input.quantity_used } : i));
-    demoMaintenance.push({ ...input, id: uid(), item_name: item?.name ?? '', unit: item?.unit ?? '', quantity_used: item ? input.quantity_used : 0, created_at: new Date(Date.now() + demoMaintenance.length).toISOString() });
+  async saveMaintenance({ id, ...input }) {
+    const old = demoMaintenance.find((r) => r.id === id);
+    // Önce eski parçaları depoya geri ekle, sonra yenilerini düş; yetmezse hiçbir şey değişmesin.
+    const stock = new Map(demoInventory.map((i) => [i.id, i.quantity]));
+    for (const p of old?.parts ?? []) if (p.item_id && stock.has(p.item_id)) stock.set(p.item_id, stock.get(p.item_id)! + p.quantity);
+    for (const p of input.parts) {
+      if (!p.item_id) continue;
+      const left = (stock.get(p.item_id) ?? 0) - p.quantity;
+      if (left < 0) throw new Error(`Depoda yeterli stok yok: ${p.item_name}.`);
+      stock.set(p.item_id, left);
+    }
+    demoInventory = demoInventory.map((i) => ({ ...i, quantity: stock.get(i.id)! }));
+    if (old) Object.assign(old, input);
+    else demoMaintenance.push({ ...input, id: uid(), created_at: new Date(Date.now() + demoMaintenance.length).toISOString() });
+    emit();
+  },
+  async deleteMaintenance(id) {
+    const i = demoMaintenance.findIndex((r) => r.id === id);
+    if (i < 0) return;
+    for (const p of demoMaintenance[i].parts) demoInventory = demoInventory.map((x) => (x.id === p.item_id ? { ...x, quantity: x.quantity + p.quantity } : x));
+    demoMaintenance.splice(i, 1);
     emit();
   },
   async listShiftEntries(day, shift, team) {

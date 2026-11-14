@@ -314,40 +314,94 @@ create table if not exists public.maintenance_records (
   equipment_id uuid not null references public.equipment (id) on delete cascade,
   technician text not null default '',
   work text not null,
-  item_id uuid references public.inventory_items (id) on delete set null,
-  item_name text not null default '', -- malzeme silinse de kayıtta kalır
-  quantity_used numeric not null default 0,
-  unit text not null default '',
   note text not null default '',
   created_by uuid default auth.uid() references public.profiles (id),
   created_at timestamptz not null default now()
 );
 create index if not exists maintenance_records_equipment_idx on public.maintenance_records (equipment_id, created_at desc);
+-- Bir bakımda kullanılan yedek parçalar (bir kayıtta birden çok olabilir, hiç olmayabilir).
+create table if not exists public.maintenance_parts (
+  id uuid primary key default gen_random_uuid(),
+  record_id uuid not null references public.maintenance_records (id) on delete cascade,
+  item_id uuid references public.inventory_items (id) on delete set null,
+  item_name text not null default '', -- malzeme depodan silinse de kayıtta kalır
+  quantity numeric not null check (quantity > 0),
+  unit text not null default ''
+);
+create index if not exists maintenance_parts_record_idx on public.maintenance_parts (record_id);
+-- Aynı malzeme bir kayıtta yalnızca bir kez yer alır (miktarı artırılır).
+create unique index if not exists maintenance_parts_item_once on public.maintenance_parts (record_id, item_id) where item_id is not null;
+-- Eski düzenden (kayıt başına tek parça) geçiş: varsa parçayı yeni tabloya taşı, eski sütunları kaldır.
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'maintenance_records' and column_name = 'item_name') then
+    execute 'insert into public.maintenance_parts (record_id, item_id, item_name, quantity, unit)
+             select id, item_id, item_name, quantity_used, unit from public.maintenance_records where item_name <> '''' and quantity_used > 0';
+    alter table public.maintenance_records drop column item_id, drop column item_name, drop column quantity_used, drop column unit;
+  end if;
+end $$;
+drop function if exists public.add_maintenance_record(uuid, text, text, uuid, numeric, text);
+
 alter table public.equipment enable row level security;
 alter table public.maintenance_records enable row level security;
+alter table public.maintenance_parts enable row level security;
 drop policy if exists equipment_all on public.equipment;
 create policy equipment_all on public.equipment for all to authenticated
   using (public.is_approved()) with check (public.is_approved());
 drop policy if exists maintenance_records_all on public.maintenance_records;
 create policy maintenance_records_all on public.maintenance_records for all to authenticated
   using (public.is_approved()) with check (public.is_approved());
+drop policy if exists maintenance_parts_all on public.maintenance_parts;
+create policy maintenance_parts_all on public.maintenance_parts for all to authenticated
+  using (public.is_approved()) with check (public.is_approved());
 
--- Bakım kaydı ekler; yedek parça kullanıldıysa aynı işlemde depo stokundan düşer.
--- Stok yetmezse hiçbir şey kaydedilmez (STOK_YETERSIZ hatası).
-create or replace function public.add_maintenance_record(
-  p_equipment uuid, p_technician text, p_work text, p_item uuid, p_quantity numeric, p_note text
-) returns void language plpgsql security invoker set search_path = public as $$
-declare v_item public.inventory_items;
+-- Bakım kaydını ekler (p_id boş) ya da düzeltir. p_parts: [{"item_id": "...", "item_name": "...", "quantity": 2, "unit": "Adet"}, ...]
+-- Düzeltmede önce eski parçalar depoya geri eklenir, sonra yeni parçalar stoktan düşülür.
+-- Herhangi bir parçada stok yetmezse hiçbir şey değişmez (STOK_YETERSIZ hatası).
+create or replace function public.save_maintenance_record(
+  p_id uuid, p_equipment uuid, p_technician text, p_work text, p_note text, p_parts jsonb
+) returns uuid language plpgsql security invoker set search_path = public as $$
+declare
+  v_id uuid := p_id;
+  v_part jsonb;
+  v_item public.inventory_items;
+  v_qty numeric;
 begin
-  if p_item is not null then
-    if coalesce(p_quantity, 0) <= 0 then raise exception 'Kullanılan miktar sıfırdan büyük olmalı.'; end if;
-    update public.inventory_items set quantity = quantity - p_quantity, updated_at = now()
-      where id = p_item and quantity >= p_quantity returning * into v_item;
-    if not found then raise exception 'STOK_YETERSIZ'; end if;
+  if v_id is null then
+    insert into public.maintenance_records (equipment_id, technician, work, note)
+    values (p_equipment, coalesce(p_technician, ''), p_work, coalesce(p_note, '')) returning id into v_id;
+  else
+    update public.maintenance_records set technician = coalesce(p_technician, ''), work = p_work, note = coalesce(p_note, '') where id = v_id;
+    if not found then raise exception 'Bakım kaydı bulunamadı.'; end if;
+    update public.inventory_items i set quantity = i.quantity + p.quantity, updated_at = now()
+      from public.maintenance_parts p where p.record_id = v_id and p.item_id = i.id;
+    delete from public.maintenance_parts where record_id = v_id;
   end if;
-  insert into public.maintenance_records (equipment_id, technician, work, item_id, item_name, quantity_used, unit, note)
-  values (p_equipment, coalesce(p_technician, ''), p_work, p_item, coalesce(v_item.name, ''),
-          case when p_item is null then 0 else p_quantity end, coalesce(v_item.unit, ''), coalesce(p_note, ''));
+  for v_part in select * from jsonb_array_elements(coalesce(p_parts, '[]'::jsonb)) loop
+    v_qty := (v_part ->> 'quantity')::numeric;
+    if coalesce(v_qty, 0) <= 0 then raise exception 'Kullanılan miktar sıfırdan büyük olmalı.'; end if;
+    if nullif(v_part ->> 'item_id', '') is null then
+      -- Depodan sonradan silinmiş bir malzeme: stok değişmez, kayıt adıyla korunur.
+      insert into public.maintenance_parts (record_id, item_id, item_name, quantity, unit)
+      values (v_id, null, coalesce(v_part ->> 'item_name', ''), v_qty, coalesce(v_part ->> 'unit', ''));
+    else
+      update public.inventory_items set quantity = quantity - v_qty, updated_at = now()
+        where id = (v_part ->> 'item_id')::uuid and quantity >= v_qty returning * into v_item;
+      if not found then raise exception 'STOK_YETERSIZ'; end if;
+      insert into public.maintenance_parts (record_id, item_id, item_name, quantity, unit)
+      values (v_id, v_item.id, v_item.name, v_qty, v_item.unit);
+    end if;
+  end loop;
+  return v_id;
+end $$;
+
+-- Bakım kaydını siler; kullanılan parçalar depoya geri eklenir.
+create or replace function public.delete_maintenance_record(p_id uuid)
+returns void language plpgsql security invoker set search_path = public as $$
+begin
+  update public.inventory_items i set quantity = i.quantity + p.quantity, updated_at = now()
+    from public.maintenance_parts p where p.record_id = p_id and p.item_id = i.id;
+  delete from public.maintenance_records where id = p_id;
 end $$;
 
 -- Başlangıç ekipman listesi (422 konveyör / motor). Yenileri uygulamadaki "Ekipman Ekle" ile eklenir.
