@@ -10,7 +10,7 @@ BHS MOBİL (geliştirici: K.Ç.K Technology) kullanıcıları hesaplarını ve k
 
 ## Uygulamaya erişemiyorsanız
 
-Hesabınızın silinmesini e-posta ile de isteyebilirsiniz: **[İLETİŞİM E-POSTASI]**. Talebinizde kayıtlı e-posta adresinizi belirtin.
+Hesabınızın silinmesini e-posta ile de isteyebilirsiniz: **kafkefkafkef57@gmail.com**. Talebinizde kayıtlı e-posta adresinizi belirtin.
 
 ## Silinen ve saklanan veriler
 

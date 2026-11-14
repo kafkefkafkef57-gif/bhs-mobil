@@ -105,7 +105,7 @@ Anahtar dosyası ya da şifresi kaybolursa Play Console'dan "yükleme anahtarın
 
 - [ ] Supabase'de güncel `supabase/schema.sql` çalıştırıldı.
 - [ ] Supabase > Authentication > Email > "Confirm email" kapalı (ya da e-posta doğrulaması çalışıyor).
-- [ ] `docs/GIZLILIK.md` ve `docs/hesap-silme.md` içindeki iletişim e-postası yazıldı.
+- [x] `docs/GIZLILIK.md` ve `docs/hesap-silme.md` içindeki iletişim e-postası yazıldı.
 - [ ] İnceleme için onaylı bir test hesabı açıldı.
 - [ ] `upload-keystore.jks` ve şifresi güvenli bir yerde yedeklendi.
 - [ ] Uygulama dahili testte gerçek telefonda denendi.

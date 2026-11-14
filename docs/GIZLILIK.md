@@ -32,4 +32,4 @@ Uygulama yalnızca çalışanların kullanımı içindir; çocuklara yönelik de
 
 ## İletişim
 
-Sorularınız ve talepleriniz için: **[İLETİŞİM E-POSTASI]**
+Sorularınız ve talepleriniz için: **kafkefkafkef57@gmail.com**

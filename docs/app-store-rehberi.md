@@ -140,7 +140,7 @@ Apple'ın inceleme ekibi uygulamaya girebilmelidir. Göndermeden önce uygulamad
 
 - [ ] Supabase'de güncel `supabase/schema.sql` çalıştırıldı.
 - [ ] Supabase > Authentication > Email > "Confirm email" kapalı (ya da e-posta doğrulaması çalışıyor).
-- [ ] `docs/GIZLILIK.md` içindeki iletişim e-postası yazıldı.
+- [x] `docs/GIZLILIK.md` içindeki iletişim e-postası yazıldı.
 - [ ] İnceleme için onaylı bir test hesabı açıldı.
 - [ ] Uygulama TestFlight ile gerçek bir iPhone'da denendi (giriş, fotoğraf ekleme, klavye, PDF paylaşma).
 - [ ] Şirket adı ve logosunun kullanımı için izin alındı (herkese açık yayın için).
