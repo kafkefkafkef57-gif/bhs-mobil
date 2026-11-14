@@ -35,6 +35,9 @@ export interface Api {
   listFaults(from: Date, to?: Date): Promise<Fault[]>;
   getFault(id: string): Promise<Fault | null>;
   saveFault(input: FaultInput): Promise<void>;
+  /** Arızanın firma, açıklama ve görselini düzeltir (bölge, vardiya ve bildiren değişmez). */
+  updateFault(id: string, patch: Pick<Fault, 'company' | 'description' | 'photo_url'>): Promise<void>;
+  deleteFault(id: string): Promise<void>;
   listStaff(): Promise<Staff[]>;
   /** from–to (dahil) aralığındaki plan; staffId verilirse yalnızca o kişi. */
   listShifts(from: string, to: string, staffId?: string): Promise<StaffShift[]>;
@@ -212,6 +215,14 @@ const supaApi: Api = {
   },
   async saveFault(input) {
     const { error } = await supabase.from('faults').insert(input);
+    fail(error);
+  },
+  async updateFault(id, patch) {
+    const { error } = await supabase.from('faults').update(patch).eq('id', id);
+    fail(error);
+  },
+  async deleteFault(id) {
+    const { error } = await supabase.from('faults').delete().eq('id', id);
     fail(error);
   },
   async todayFaultCount() {
@@ -600,6 +611,14 @@ const demoApi: Api = {
   async getFault(id) {
     const f = demo.faults.find((x) => x.id === id);
     return f ? { ...f, author_name: demo.users.find((u) => u.id === f.created_by)?.full_name } : null;
+  },
+  async updateFault(id, patch) {
+    demo.faults = demo.faults.map((f) => (f.id === id ? { ...f, ...patch } : f));
+    emit();
+  },
+  async deleteFault(id) {
+    demo.faults = demo.faults.filter((f) => f.id !== id);
+    emit();
   },
   async saveFault(input) {
     demo.faults.push({ ...input, id: uid(), created_by: demo.me!, created_at: now() });
