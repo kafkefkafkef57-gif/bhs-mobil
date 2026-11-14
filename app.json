@@ -7,8 +7,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.bhsmobil.app"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bhsmobil.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +21,8 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.bhsmobil.app"
+      "package": "com.bhsmobil.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png",

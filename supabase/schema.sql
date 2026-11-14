@@ -89,6 +89,19 @@ drop trigger if exists profiles_protect_role on public.profiles;
 create trigger profiles_protect_role before update on public.profiles
   for each row execute function public.protect_profile_role();
 
+-- Hesap silme (uygulama içinden): giriş bilgileri tamamen silinir, profildeki kişisel bilgiler temizlenir.
+-- Kişinin daha önce girdiği kayıtlar (arıza, bakım vb.) "Silinen kullanıcı" adıyla kalır.
+alter table public.profiles drop constraint if exists profiles_id_fkey; -- profil satırı, giriş kaydı silinse de kalabilsin
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = public as $$
+declare v_id uuid := auth.uid();
+begin
+  if v_id is null then raise exception 'Oturum bulunamadı.'; end if;
+  if public.is_owner() then raise exception 'Uygulama sahibinin hesabı silinemez.'; end if;
+  update public.profiles set full_name = 'Silinen kullanıcı', phone = '', email = '', status = 'rejected', shift = null, team = null where id = v_id;
+  delete from auth.users where id = v_id;
+end $$;
+
 -- Kullanıcı yalnızca kendi vardiya ve ekibini değiştirebilir (rol ve onay durumuna dokunamaz).
 create or replace function public.set_my_shift(p_shift text, p_team text) returns void
 language plpgsql security definer set search_path = public as $$

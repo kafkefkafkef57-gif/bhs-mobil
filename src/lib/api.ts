@@ -8,6 +8,8 @@ export interface Api {
   signIn(email: string, password: string): Promise<void>;
   signUp(input: SignUpInput): Promise<void>;
   signOut(): Promise<void>;
+  /** Giriş yapan kişinin hesabını kalıcı olarak siler ve oturumu kapatır. */
+  deleteMyAccount(): Promise<void>;
   /** Giriş yapan kişinin vardiya ve ekibini kaydeder. */
   setMyShift(shift: Shift, team: Department): Promise<void>;
   currentProfile(): Promise<Profile | null>;
@@ -132,6 +134,11 @@ const supaApi: Api = {
   },
   async signOut() {
     await supabase.auth.signOut();
+  },
+  async deleteMyAccount() {
+    const { error } = await supabase.rpc('delete_my_account');
+    fail(error);
+    await supabase.auth.signOut({ scope: 'local' });
   },
   async setMyShift(shift, team) {
     const { error } = await supabase.rpc('set_my_shift', { p_shift: shift, p_team: team });
@@ -556,6 +563,13 @@ const demoApi: Api = {
     emit();
   },
   async signOut() {
+    demo.me = null;
+    emit();
+  },
+  async deleteMyAccount() {
+    if (demo.me === 'admin') throw new Error('Uygulama sahibinin hesabı silinemez.');
+    const u = demo.users.find((x) => x.id === demo.me);
+    if (u) Object.assign(u, { full_name: 'Silinen kullanıcı', phone: '', email: `silindi-${u.id}`, status: 'rejected', shift: null, team: null, password: uid() });
     demo.me = null;
     emit();
   },

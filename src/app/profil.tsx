@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react-native';
+import { LogOut, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { api } from '../lib/api';
@@ -7,7 +7,7 @@ import { C } from '../lib/theme';
 import { Brand } from '../lib/Brand';
 import { ShiftTeamPicker } from '../lib/ShiftTeamPicker';
 import { Department, Shift } from '../lib/types';
-import { Badge, Btn, Card, ErrorText, s } from '../lib/ui';
+import { Badge, Btn, Card, confirm, ErrorText, s } from '../lib/ui';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -46,7 +46,17 @@ export default function Profil() {
         <ShiftTeamPicker shift={profile.shift} team={profile.team} onShift={(v) => save(v, profile.team ?? 'Operasyon')} onTeam={(v) => save(profile.shift ?? 'A', v)} />
         <ErrorText>{error}</ErrorText>
       </Card>
-      <Btn label="Çıkış Yap" icon={LogOut} variant="danger" onPress={() => api.signOut()} />
+      <Btn label="Çıkış Yap" icon={LogOut} onPress={() => api.signOut()} />
+      <Card style={{ gap: 10 }}>
+        <Text style={s.h2}>Hesabı sil</Text>
+        <Text style={s.muted}>Hesabınız ve kişisel bilgileriniz (ad, telefon, e-posta) kalıcı olarak silinir; bu işlem geri alınamaz. Daha önce girdiğiniz kayıtlar "Silinen kullanıcı" adıyla kalır.</Text>
+        <Btn
+          label="Hesabımı Sil"
+          icon={Trash2}
+          variant="danger"
+          onPress={() => confirm('Hesabınız silinsin mi?', 'Hesabınız ve kişisel bilgileriniz kalıcı olarak silinecek. Bu işlem geri alınamaz.', () => api.deleteMyAccount().catch((e) => setError(e.message)))}
+        />
+      </Card>
       <Brand />
     </ScrollView>
   );
