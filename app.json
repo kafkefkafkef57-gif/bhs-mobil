@@ -49,6 +49,12 @@
       ]
     ],
     "scheme": "bhsmobil",
-    "backgroundColor": "#111113"
+    "backgroundColor": "#111113",
+    "extra": {
+      "eas": {
+        "projectId": "837c4f18-d2c3-458a-8a20-a7f306e9d160"
+      }
+    },
+    "owner": "orhankesk57"
   }
 }
