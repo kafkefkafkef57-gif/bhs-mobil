@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BHS MOBİL",
+    "name": "BHS Mobil",
     "slug": "bhs-mobil",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,7 +11,8 @@
       "bundleIdentifier": "com.bhsmobil.app",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDisplayName": "BHS MOBİL"
       }
     },
     "android": {
@@ -39,7 +40,13 @@
           "microphonePermission": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "./plugins/withAppLabel",
+        {
+          "label": "BHS MOBİL"
+        }
+      ]
     ],
     "scheme": "bhsmobil",
     "backgroundColor": "#111113"
